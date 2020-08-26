@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"os/exec"
 
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/cmd"
@@ -19,12 +16,7 @@ var handlers = cmd.HandlersByEventName{
 }
 
 func main() {
-	var buf bytes.Buffer
-	checkSdk := exec.Command("go", "version")
-	checkSdk.Stdout = &buf
-	checkSdk.Stderr = &buf
-	_ = checkSdk.Run()
-	fmt.Println(buf.String())
+	logrus.SetLevel(logrus.DebugLevel)
 
 	ctx := context.Background()
 	if err := cmd.Run(ctx, handlers); err != nil {
