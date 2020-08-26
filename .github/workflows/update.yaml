@@ -1,0 +1,12 @@
+name: Periodic Dependency Update
+on:
+  schedule:
+    - cron:  '55 20 * * *'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: thepwagner/action-update-go@main
+      - run: git push
