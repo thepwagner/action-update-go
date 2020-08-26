@@ -1,1 +1,12 @@
-
+name: PR
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '1.15.0'
+    - run: go version
+    - uses: thepwagner/action-update-go@main
