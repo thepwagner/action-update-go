@@ -2,8 +2,9 @@
 
 ROOT="$(dirname "$0")/.."
 
-export GITHUB_EVENT_NAME="${1:-repository_vulnerability_alert}"
+export GITHUB_EVENT_NAME="${1:-schedule}"
 export GITHUB_EVENT_PATH="${ROOT}/test_webhooks/${GITHUB_EVENT_NAME}.json"
+export INPUT_LOG_LEVEL=debug
 set | grep ^GITHUB_EVENT
 go run .
 

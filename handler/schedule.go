@@ -2,50 +2,61 @@ package handler
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modload"
-	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
+	"github.com/go-git/go-git/v5"
 	"github.com/sirupsen/logrus"
+	"github.com/thepwagner/action-update-go/cmd"
 	"github.com/thepwagner/action-update-go/gomod"
+	gitrepo "github.com/thepwagner/action-update-go/repo"
 )
 
-func Schedule(context.Context, interface{}) error {
-	goMod, err := gomod.Parse()
+func Schedule(ctx context.Context, env cmd.Environment, _ interface{}) error {
+	repo, err := git.PlainOpen(".")
+	if err != nil {
+		return err
+	}
+	gitRepo, err := gitrepo.NewGitRepo(repo)
 	if err != nil {
 		return err
 	}
 
-	modload.InitMod()
-	for _, req := range goMod.Require {
-		pkg := req.Mod.Path
-		version := req.Mod.Version
-		log := logrus.WithFields(logrus.Fields{
-			"pkg":             pkg,
-			"current_version": version,
-		})
-		log.Debug("checking for updates")
-
-		latest, err := modload.Query(pkg, "latest", nil)
+	var modRepo gomod.Repo
+	if env.GitHubRepository != "" && env.GitHubToken != "" {
+		modRepo, err = gitrepo.NewGitHubRepo(gitRepo, env.GitHubRepository, env.GitHubToken)
 		if err != nil {
-			log.WithError(err).Warn("querying for latest version")
-			continue
+			return err
 		}
-		log = log.WithFields(logrus.Fields{
-			"latest_version": latest.Version,
-		})
-
-		upgrade := semver.Compare(version, latest.Version) < 0
-		if !upgrade {
-			log.Debug("no update available")
-			continue
-		}
-		log.Info("upgrade available")
-
-		if err := gomod.Update(pkg, latest.Version); err != nil {
-			return fmt.Errorf("upgrading %q: %w", pkg, err)
-		}
+	} else {
+		modRepo = gitRepo
 	}
 
+	updater, err := gomod.NewRepoUpdater(modRepo)
+	if err != nil {
+		return err
+	}
+
+	initialBranch := gitRepo.Branch()
+	defer func() {
+		if err := gitRepo.SetBranch(initialBranch); err != nil {
+			logrus.WithError(err).Warn("error reverting to initial branch")
+		}
+	}()
+
+	// If branches were provided as input, target those:
+	if branches := env.Branches(); len(branches) > 0 {
+		for _, b := range branches {
+			if err := updater.UpdateAll(ctx, b); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// No branches as input, fallback to current branch:
+	if err := updater.UpdateAll(ctx, initialBranch); err != nil {
+		return err
+	}
 	return nil
 }
+
+var _ Handler = Schedule

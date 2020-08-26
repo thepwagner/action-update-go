@@ -1,0 +1,27 @@
+name: Update Go
+description: Update Go dependencies
+inputs:
+  branches:
+    description: 'Branches to update'
+    required: false
+  token:
+    description: >
+      Personal access token (PAT) used to fetch the repository. The PAT is configured
+      with the local git config, which enables your scripts to run authenticated git
+      commands. The post-job step removes the PAT.
+      We recommend using a service account with the least permissions necessary.
+      Also when generating a new PAT, select the least scopes necessary.
+      [Learn more about creating and using encrypted secrets](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/creating-and-using-encrypted-secrets)
+    default: ${{ github.token }}
+    required: true
+  log_level:
+    description: 'Control debug/info/warn/error output'
+    required: false
+runs:
+  using: "composite"
+  steps:
+    - name: Verify Go SDK
+      run: which go || echo "Go required, please use actions/setup-go before me"
+      shell: bash
+    - run: (cd "${{github.action_path}}" && go build -o /action-update-go .) && /action-update-go
+      shell: bash
