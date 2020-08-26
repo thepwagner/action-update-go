@@ -7,7 +7,7 @@ import (
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfile"
 )
 
-const goModFn = "go.mod"
+
 
 // Parse returns parsed `go.mod`.
 func Parse() (*modfile.File, error) {
