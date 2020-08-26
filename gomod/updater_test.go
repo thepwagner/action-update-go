@@ -29,10 +29,10 @@ func TestUpdater_UpdateAll(t *testing.T) {
 	err = u.UpdateAll("master")
 	require.NoError(t, err)
 
-	// We expect a branch has been created containing updates to logrus:
+	// We expect 2 new branches: logrus and pkg/errors
 	cfg, err := r.Config()
 	require.NoError(t, err)
-	assert.Len(t, cfg.Branches, 2)
+	assert.Len(t, cfg.Branches, 3)
 	var logrusBranch string
 	for b := range cfg.Branches {
 		if strings.HasPrefix(b, "action-update-go/github.com/sirupsen/logrus/") {
@@ -53,6 +53,7 @@ func TestUpdater_UpdateAll(t *testing.T) {
 	goMod := worktreeFile(t, wt, "go.mod")
 	assert.NotContains(t, goMod, "github.com/sirupsen/logrus v1.5.0", "logrus not updated")
 	assert.Contains(t, goMod, "github.com/sirupsen/logrus")
+	assert.Contains(t, goMod, "github.com/pkg/errors v0.8.0", "pkg/errors updated in wrong branch")
 
 	goSum := worktreeFile(t, wt, "go.sum")
 	assert.NotContains(t, goSum, "github.com/sirupsen/logrus v1.5.0", "go.sum not tidied")
