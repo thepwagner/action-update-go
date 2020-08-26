@@ -1,0 +1,5 @@
+name: Update Go
+description: Update Go dependencies
+runs:
+  using: node12
+  main: dist/index.js
