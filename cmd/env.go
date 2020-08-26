@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/caarlos0/env/v6"
 	"github.com/google/go-github/v32/github"
@@ -11,6 +12,7 @@ import (
 type Environment struct {
 	GitHubEventName string `env:"GITHUB_EVENT_NAME"`
 	GitHubEventPath string `env:"GITHUB_EVENT_PATH"`
+	InputBranches   string `env:"INPUT_BRANCHES"`
 }
 
 func ParseEnvironment() (Environment, error) {
@@ -21,7 +23,7 @@ func ParseEnvironment() (Environment, error) {
 	return e, nil
 }
 
-func (e Environment) parseEvent() (interface{}, error) {
+func (e Environment) ParseEvent() (interface{}, error) {
 	switch e.GitHubEventName {
 	case "schedule", "workflow_dispatch":
 		return nil, nil
@@ -38,4 +40,13 @@ func (e Environment) parseEvent() (interface{}, error) {
 		return nil, fmt.Errorf("parsing event: %w", err)
 	}
 	return evt, nil
+}
+
+func (e Environment) Branches() (branches []string) {
+	for _, b := range strings.Split(e.InputBranches, "\n") {
+		if s := strings.TrimSpace(b); s != "" {
+			branches = append(branches, s)
+		}
+	}
+	return
 }

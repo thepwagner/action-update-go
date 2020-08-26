@@ -1,16 +1,17 @@
-package cmd
+package main
 
 import (
 	"context"
 
 	"github.com/sirupsen/logrus"
+	"github.com/thepwagner/action-update-go/cmd"
 	"github.com/thepwagner/action-update-go/handler"
 )
 
 type HandlersByEventName map[string]handler.Handler
 
 func Run(ctx context.Context, handlers HandlersByEventName) error {
-	env, err := ParseEnvironment()
+	env, err := cmd.ParseEnvironment()
 	if err != nil {
 		return err
 	}
@@ -21,10 +22,10 @@ func Run(ctx context.Context, handlers HandlersByEventName) error {
 		return nil
 	}
 
-	evt, err := env.parseEvent()
+	evt, err := env.ParseEvent()
 	if err != nil {
 		return err
 	}
 
-	return h(ctx, evt)
+	return h(ctx, env, evt)
 }

@@ -50,11 +50,11 @@ func NewUpdater(repo *git.Repository) (*Updater, error) {
 		Tidy: true,
 		Author: GitIdentity{
 			Name:  "actions-update-go",
-			Email: "no-reply@github.com",
+			Email: "noreply@github.com",
 		},
 		Committer: GitIdentity{
 			Name:  "actions-update-go",
-			Email: "no-reply@github.com",
+			Email: "noreply@github.com",
 		},
 	}, nil
 }
@@ -93,6 +93,9 @@ func (u *Updater) UpdateAll(baseBranch string) error {
 			log.WithError(err).Warn("error checking for updates")
 			continue
 		}
+		if latest == "" {
+			continue
+		}
 
 		if err := u.update(baseRef.Hash(), pkg, latest); err != nil {
 			return fmt.Errorf("upgrading %q: %w", pkg, err)
@@ -122,10 +125,7 @@ func (u *Updater) parseGoMod() (*modfile.File, error) {
 func (u *Updater) checkForUpdate(req *modfile.Require) (latestVersion string, err error) {
 	pkg := req.Mod.Path
 	version := req.Mod.Version
-	log := logrus.WithFields(logrus.Fields{
-		"pkg":             pkg,
-		"current_version": version,
-	})
+	log := logrus.WithField("pkg", pkg)
 	log.Debug("querying latest version")
 
 	latest, err := modload.Query(pkg, "latest", nil)
@@ -133,12 +133,14 @@ func (u *Updater) checkForUpdate(req *modfile.Require) (latestVersion string, er
 		return "", fmt.Errorf("querying for latest version: %w", err)
 	}
 	log = log.WithFields(logrus.Fields{
-		"latest_version": latest.Version,
+		"latest_version":  latest.Version,
+		"current_version": version,
 	})
 
 	upgrade := semver.Compare(version, latest.Version) < 0
 	if !upgrade {
 		log.Debug("no update available")
+		return "", nil
 	}
 	log.Info("upgrade available")
 	return latest.Version, nil
@@ -169,8 +171,9 @@ func (u *Updater) createUpdateBranch(base plumbing.Hash, pkg, version string) er
 	// Switch to the target branch:
 	branchName := fmt.Sprintf("action-update-go/%s/%s", pkg, version)
 	log.WithField("branch", branchName).Debug("checking out target branch")
+	branchRef := plumbing.NewBranchReferenceName(branchName)
 	err := u.wt.Checkout(&git.CheckoutOptions{
-		Branch: plumbing.NewBranchReferenceName(branchName),
+		Branch: branchRef,
 		Hash:   base,
 		Create: true,
 		Force:  true,
@@ -179,7 +182,9 @@ func (u *Updater) createUpdateBranch(base plumbing.Hash, pkg, version string) er
 		return fmt.Errorf("switching to target branch: %w", err)
 	}
 	err = u.repo.CreateBranch(&config.Branch{
-		Name: branchName,
+		Name:   branchName,
+		Merge:  branchRef,
+		Remote: "origin",
 	})
 	if err != nil {
 		return fmt.Errorf("creating target branch: %w", err)

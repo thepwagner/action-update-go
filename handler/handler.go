@@ -1,5 +1,9 @@
 package handler
 
-import "context"
+import (
+	"context"
 
-type Handler func(context.Context, interface{}) error
+	"github.com/thepwagner/action-update-go/cmd"
+)
+
+type Handler func(context.Context, cmd.Environment, interface{}) error

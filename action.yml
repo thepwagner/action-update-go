@@ -1,5 +1,9 @@
 name: Update Go
 description: Update Go dependencies
+inputs:
+  branches:
+    description: 'Branches to update'
+    required: true
 runs:
   using: node12
   main: dist/index.js
