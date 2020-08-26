@@ -22,7 +22,8 @@ func ParseEnvironment() (Environment, error) {
 }
 
 func (e Environment) parseEvent() (interface{}, error) {
-	if e.GitHubEventName == "schedule" {
+	switch e.GitHubEventName {
+	case "schedule", "workflow_dispatch":
 		return nil, nil
 	}
 

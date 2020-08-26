@@ -15,6 +15,7 @@ var handlers = cmd.HandlersByEventName{
 	"issue_comment":                  handler.IssueComment,
 	"repository_vulnerability_alert": handler.RepositoryVulnerabilityAlert,
 	"schedule":                       handler.Schedule,
+	"workflow_dispatch":              handler.Schedule,
 }
 
 func main() {

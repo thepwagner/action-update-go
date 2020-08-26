@@ -1,7 +1,8 @@
 name: Periodic Dependency Update
 on:
   schedule:
-    - cron:  '55 20 * * *'
+    - cron: '0 8 * * *'
+  workflow_dispatch:
 
 jobs:
   update:
