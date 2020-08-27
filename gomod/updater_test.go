@@ -78,7 +78,7 @@ func TestUpdater_UpdateAll_Major(t *testing.T) {
 
 func updateAllInFixture(t *testing.T, fixture string) *git.Repository {
 	upstream, downstream := fixtureRepos(t, fixture)
-	u, err := gomod.NewUpdater(downstream)
+	u, err := gomod.NewUpdater(downstream, "", "")
 	require.NoError(t, err)
 	err = u.UpdateAll(context.Background(), "master")
 	require.NoError(t, err)

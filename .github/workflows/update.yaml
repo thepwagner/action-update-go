@@ -14,5 +14,6 @@ jobs:
           go-version: '1.15.0'
       - run: go run .
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INPUT_BRANCHES: |
             main

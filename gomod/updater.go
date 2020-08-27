@@ -24,7 +24,9 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -33,8 +35,12 @@ const (
 )
 
 type Updater struct {
-	repo         *git.Repository
-	wt           *git.Worktree
+	repo     *git.Repository
+	wt       *git.Worktree
+	github   *github.Client
+	owner    string
+	repoName string
+
 	Tidy         bool
 	Author       GitIdentity
 	Committer    GitIdentity
@@ -46,20 +52,21 @@ type GitIdentity struct {
 	Email string
 }
 
-func NewUpdater(repo *git.Repository) (*Updater, error) {
+func NewUpdater(repo *git.Repository, ghRepo, token string) (*Updater, error) {
 	wt, err := repo.Worktree()
 	if err != nil {
 		return nil, fmt.Errorf("getting work tree: %w", err)
 	}
-
 	if status, err := wt.Status(); err != nil {
 		return nil, fmt.Errorf("getting worktree status: %w", err)
 	} else if !status.IsClean() {
 		return nil, fmt.Errorf("tree is not clean, reset") // or implement force...
 	}
-	return &Updater{
-		repo:         repo,
-		wt:           wt,
+
+	u := &Updater{
+		repo: repo,
+		wt:   wt,
+
 		Tidy:         true,
 		MajorVersion: true,
 		Author: GitIdentity{
@@ -70,7 +77,22 @@ func NewUpdater(repo *git.Repository) (*Updater, error) {
 			Name:  "actions-update-go",
 			Email: "noreply@github.com",
 		},
-	}, nil
+	}
+
+	if token != "" {
+		ghRepoSplit := strings.Split(ghRepo, "/")
+		if len(ghRepoSplit) != 2 {
+			return nil, fmt.Errorf("expected repo in OWNER/NAME format")
+		}
+		u.owner = ghRepoSplit[0]
+		u.repoName = ghRepoSplit[1]
+
+		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+		tc := oauth2.NewClient(context.Background(), ts)
+		u.github = github.NewClient(tc)
+	}
+
+	return u, nil
 }
 
 func (u *Updater) UpdateAll(ctx context.Context, baseBranch string) error {
@@ -102,6 +124,12 @@ func (u *Updater) UpdateAll(ctx context.Context, baseBranch string) error {
 	for _, req := range goMod.Require {
 		pkg := req.Mod.Path
 		log := logrus.WithField("pkg", pkg)
+		update := moduleUpdate{
+			baseBranch: baseBranch,
+			baseHash:   baseRef.Hash(),
+			pkg:        pkg,
+			previous:   req.Mod.Version,
+		}
 
 		if u.MajorVersion {
 			latest, err := u.checkForMajorUpdate(req)
@@ -110,7 +138,8 @@ func (u *Updater) UpdateAll(ctx context.Context, baseBranch string) error {
 				continue
 			}
 			if latest != "" {
-				if err := u.update(ctx, baseRef.Hash(), pkg, latest, true); err != nil {
+				update.next = latest
+				if err := u.update(ctx, update); err != nil {
 					return fmt.Errorf("upgrading %q: %w", pkg, err)
 				}
 				continue
@@ -125,8 +154,8 @@ func (u *Updater) UpdateAll(ctx context.Context, baseBranch string) error {
 		if latest == "" {
 			continue
 		}
-
-		if err := u.update(ctx, baseRef.Hash(), pkg, latest, false); err != nil {
+		update.next = latest
+		if err := u.update(ctx, update); err != nil {
 			return fmt.Errorf("upgrading %q: %w", pkg, err)
 		}
 	}
@@ -209,16 +238,17 @@ func pkgMajorVersion(pkg string, version int64) string {
 	return fmt.Sprintf("%s/v%d", pkg[:strings.LastIndex(pkg, "/")], version)
 }
 
-func (u *Updater) update(ctx context.Context, base plumbing.Hash, pkg, version string, major bool) error {
-	if err := u.createUpdateBranch(base, pkg, version, major); err != nil {
+func (u *Updater) update(ctx context.Context, update moduleUpdate) error {
+	if err := u.createUpdateBranch(update); err != nil {
 		return err
 	}
 
-	if err := u.updateFiles(ctx, pkg, version, major); err != nil {
+	if err := u.updateFiles(ctx, update); err != nil {
 		return err
 	}
 
-	commitMessage := fmt.Sprintf("update %s from to %s", pkg, version)
+	// TODO: dependency inject this
+	commitMessage := fmt.Sprintf("update %s to %s", update.pkg, update.next)
 	if err := u.commit(commitMessage); err != nil {
 		return err
 	}
@@ -226,27 +256,24 @@ func (u *Updater) update(ctx context.Context, base plumbing.Hash, pkg, version s
 	if err := u.push(ctx); err != nil {
 		return err
 	}
+
+	if err := u.createPR(ctx, update); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (u *Updater) createUpdateBranch(base plumbing.Hash, pkg, version string, major bool) error {
+func (u *Updater) createUpdateBranch(update moduleUpdate) error {
 	log := logrus.WithFields(logrus.Fields{
-		"pkg":     pkg,
-		"version": version,
+		"pkg":     update.pkg,
+		"version": update.next,
 	})
-	// Switch to the target branch:
-	var branchPkg string
-	if major {
-		branchPkg = path.Dir(pkg)
-	} else {
-		branchPkg = pkg
-	}
-	branchName := fmt.Sprintf("action-update-go/%s/%s", branchPkg, version)
+	branchName := update.branchName()
 	log.WithField("branch", branchName).Debug("checking out target branch")
 	branchRef := plumbing.NewBranchReferenceName(branchName)
 	err := u.wt.Checkout(&git.CheckoutOptions{
 		Branch: branchRef,
-		Hash:   base,
+		Hash:   update.baseHash,
 		Create: true,
 		Force:  true,
 	})
@@ -264,13 +291,13 @@ func (u *Updater) createUpdateBranch(base plumbing.Hash, pkg, version string, ma
 	return nil
 }
 
-func (u *Updater) updateFiles(ctx context.Context, pkg, version string, major bool) error {
-	if err := u.updateGoMod(pkg, version, major); err != nil {
+func (u *Updater) updateFiles(ctx context.Context, update moduleUpdate) error {
+	if err := u.updateGoMod(update); err != nil {
 		return err
 	}
 
-	if major {
-		if err := u.updateSourceCode(pkg, version); err != nil {
+	if update.major() {
+		if err := u.updateSourceCode(update); err != nil {
 			return err
 		}
 	}
@@ -287,24 +314,24 @@ func (u *Updater) updateFiles(ctx context.Context, pkg, version string, major bo
 	return nil
 }
 
-func (u *Updater) updateGoMod(pkg, version string, major bool) error {
+func (u *Updater) updateGoMod(update moduleUpdate) error {
 	goMod, err := u.parseGoMod()
 	if err != nil {
 		return err
 	}
 
-	if major {
-		// Drop previous and replace with new:
-		if err := goMod.DropRequire(pkg); err != nil {
+	if update.major() {
+		// Replace foo.bar/v2 with foo.bar/v3:
+		if err := goMod.DropRequire(update.pkg); err != nil {
 			return fmt.Errorf("dropping requirement: %w", err)
 		}
-		pkgNewMajor := path.Join(path.Dir(pkg), semver.Major(version))
-		if err := goMod.AddRequire(pkgNewMajor, version); err != nil {
+		pkgNext := path.Join(path.Dir(update.pkg), semver.Major(update.next))
+		if err := goMod.AddRequire(pkgNext, update.next); err != nil {
 			return fmt.Errorf("dropping requirement: %w", err)
 		}
 	} else {
 		// Replace the version:
-		if err := goMod.AddRequire(pkg, version); err != nil {
+		if err := goMod.AddRequire(update.pkg, update.next); err != nil {
 			return fmt.Errorf("adding requirement: %w", err)
 		}
 	}
@@ -332,14 +359,14 @@ func (u *Updater) updateGoMod(pkg, version string, major bool) error {
 	return nil
 }
 
-func (u *Updater) updateSourceCode(pkg, version string) error {
-	pattern, err := regexp.Compile(strings.ReplaceAll(pkg, ".", "\\."))
+func (u *Updater) updateSourceCode(update moduleUpdate) error {
+	// replace foo.bar/v1 with foo.bar/v2 in imports:
+	pattern, err := regexp.Compile(strings.ReplaceAll(update.pkg, ".", "\\."))
 	if err != nil {
 		return err
 	}
 
-	replacement := path.Join(path.Dir(pkg), semver.Major(version))
-
+	pkgNext := path.Join(path.Dir(update.pkg), semver.Major(update.next))
 	return filepath.Walk(u.wt.Filesystem.Root(), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			logrus.WithError(err).WithField("path", path).Warn("error accessing path")
@@ -351,7 +378,7 @@ func (u *Updater) updateSourceCode(pkg, version string) error {
 		if filepath.Ext(path) != ".go" {
 			return nil
 		}
-		if err := u.updateFile(path, info, pattern, replacement); err != nil {
+		if err := u.updateFile(path, info, pattern, pkgNext); err != nil {
 			return err
 		}
 
@@ -487,8 +514,54 @@ func (u *Updater) commit(message string) error {
 
 func (u *Updater) push(ctx context.Context) error {
 	// go-git supports Push, but not the [http "https://github.com/"] .gitconfig directive that actions/checkout uses for auth
-	if err := u.worktreeCmd(ctx, "git", "push"); err != nil {
+	// we could extract from u.repo.Config().Raw, but who are we trying to impress?
+	if err := u.worktreeCmd(ctx, "git", "push", "-f"); err != nil {
 		return fmt.Errorf("pushing: %w", err)
 	}
+	return nil
+}
+
+type moduleUpdate struct {
+	baseBranch string
+	baseHash   plumbing.Hash
+
+	pkg      string
+	previous string
+	next     string
+}
+
+func (u moduleUpdate) major() bool {
+	return semver.Major(u.previous) != semver.Major(u.next)
+}
+
+func (u moduleUpdate) branchName() string {
+	var branchPkg string
+	if u.major() {
+		branchPkg = path.Dir(u.pkg)
+	} else {
+		branchPkg = u.pkg
+	}
+	return fmt.Sprintf("action-update-go/%s/%s", branchPkg, u.next)
+}
+
+func (u *Updater) createPR(ctx context.Context, update moduleUpdate) error {
+	if u.github == nil {
+		return nil
+	}
+
+	// TODO: dependency inject this
+	title := fmt.Sprintf("Update %s from %s to %s", update.pkg, update.previous, update.next)
+	body := "you're welcome\nTODO: release notes or something?"
+
+	res, _, err := u.github.PullRequests.Create(ctx, u.owner, u.repoName, &github.NewPullRequest{
+		Title: &title,
+		Body:  &body,
+		Base:  &update.baseBranch,
+		Head:  github.String(update.branchName()),
+	})
+	if err != nil {
+		return fmt.Errorf("creating PR: %w", err)
+	}
+	logrus.WithField("pr_id", res.ID).Info("created pull request")
 	return nil
 }

@@ -10,9 +10,11 @@ import (
 )
 
 type Environment struct {
-	GitHubEventName string `env:"GITHUB_EVENT_NAME"`
-	GitHubEventPath string `env:"GITHUB_EVENT_PATH"`
-	InputBranches   string `env:"INPUT_BRANCHES"`
+	GitHubEventName  string `env:"GITHUB_EVENT_NAME"`
+	GitHubEventPath  string `env:"GITHUB_EVENT_PATH"`
+	InputBranches    string `env:"INPUT_BRANCHES"`
+	GitHubRepository string `env:"GITHUB_REPOSITORY"`
+	GitHubToken      string `env:"GITHUB_TOKEN"`
 }
 
 func ParseEnvironment() (Environment, error) {
