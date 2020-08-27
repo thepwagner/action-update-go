@@ -214,7 +214,7 @@ func (u *Updater) update(ctx context.Context, base plumbing.Hash, pkg, version s
 		return err
 	}
 
-	if err := u.updateFiles(pkg, version, major); err != nil {
+	if err := u.updateFiles(ctx, pkg, version, major); err != nil {
 		return err
 	}
 
@@ -264,7 +264,7 @@ func (u *Updater) createUpdateBranch(base plumbing.Hash, pkg, version string, ma
 	return nil
 }
 
-func (u *Updater) updateFiles(pkg, version string, major bool) error {
+func (u *Updater) updateFiles(ctx context.Context, pkg, version string, major bool) error {
 	if err := u.updateGoMod(pkg, version, major); err != nil {
 		return err
 	}
@@ -275,12 +275,12 @@ func (u *Updater) updateFiles(pkg, version string, major bool) error {
 		}
 	}
 
-	if err := u.updateGoSum(); err != nil {
+	if err := u.updateGoSum(ctx); err != nil {
 		return err
 	}
 
 	if u.hasVendor() {
-		if err := u.updateVendor(); err != nil {
+		if err := u.updateVendor(ctx); err != nil {
 			return err
 		}
 	}
@@ -403,14 +403,14 @@ func (u *Updater) updateFile(path string, info os.FileInfo, pattern *regexp.Rege
 	return nil
 }
 
-func (u *Updater) updateGoSum() error {
+func (u *Updater) updateGoSum(ctx context.Context) error {
 	// Shell out to the Go SDK for this, so the user has more control over generation:
-	if err := u.worktreeCmd("go", "get", "-d", "-v"); err != nil {
+	if err := u.worktreeCmd(ctx, "go", "get", "-d", "-v"); err != nil {
 		return fmt.Errorf("updating go.sum: %w", err)
 	}
 
 	if u.Tidy {
-		if err := u.worktreeCmd("go", "mod", "tidy"); err != nil {
+		if err := u.worktreeCmd(ctx, "go", "mod", "tidy"); err != nil {
 			return fmt.Errorf("tidying go.sum: %w", err)
 		}
 	}
@@ -423,14 +423,14 @@ func (u *Updater) hasVendor() bool {
 	return err == nil
 }
 
-func (u *Updater) updateVendor() error {
-	if err := u.worktreeCmd("go", "mod", "vendor"); err != nil {
+func (u *Updater) updateVendor(ctx context.Context) error {
+	if err := u.worktreeCmd(ctx, "go", "mod", "vendor"); err != nil {
 		return fmt.Errorf("go vendoring: %w", err)
 	}
 	return nil
 }
 
-func (u *Updater) worktreeCmd(cmd string, args ...string) error {
+func (u *Updater) worktreeCmd(ctx context.Context, cmd string, args ...string) error {
 	var out io.Writer
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
 		log := logrus.StandardLogger().WriterLevel(logrus.DebugLevel)
@@ -441,7 +441,7 @@ func (u *Updater) worktreeCmd(cmd string, args ...string) error {
 		out = ioutil.Discard
 	}
 
-	c := exec.Command(cmd, args...)
+	c := exec.CommandContext(ctx, cmd, args...)
 	c.Stdout = out
 	c.Stderr = out
 	c.Dir = u.wt.Filesystem.Root()
@@ -486,7 +486,8 @@ func (u *Updater) commit(message string) error {
 }
 
 func (u *Updater) push(ctx context.Context) error {
-	if err := u.repo.PushContext(ctx, &git.PushOptions{}); err != nil {
+	// go-git supports Push, but not the [http "https://github.com/"] .gitconfig directive that actions/checkout uses for auth
+	if err := u.worktreeCmd(ctx, "git", "push"); err != nil {
 		return fmt.Errorf("pushing: %w", err)
 	}
 	return nil
