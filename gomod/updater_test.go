@@ -64,11 +64,15 @@ func TestUpdater_UpdateAll_Vendor(t *testing.T) {
 func TestUpdater_UpdateAll_Major(t *testing.T) {
 	// Update and interrogate the logrus branch:
 	r := updateAllInFixture(t, "major")
-	cfg, _ := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/caarlos0/env/")
+	cfg, wt := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/caarlos0/env/")
 
 	// We expect 1 new branches: env
 	assert.Len(t, cfg.Branches, 2)
 
+	// env is upgraded:
+	goMod := worktreeFile(t, wt, gomod.GoModFn)
+	assert.NotContains(t, goMod, "github.com/caarlos0/env/v5", "env not updated")
+	assert.Contains(t, goMod, "github.com/caarlos0/env/v", "env removed")
 }
 
 func updateAllInFixture(t *testing.T, fixture string) *git.Repository {

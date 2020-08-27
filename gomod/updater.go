@@ -1,12 +1,15 @@
 package gomod
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -260,7 +263,9 @@ func (u *Updater) updateFiles(pkg, version string, major bool) error {
 	}
 
 	if major {
-		fmt.Println("TODO: bump the coooodez")
+		if err := u.updateSourceCode(pkg, version); err != nil {
+			return err
+		}
 	}
 
 	if err := u.updateGoSum(); err != nil {
@@ -280,7 +285,6 @@ func (u *Updater) updateGoMod(pkg, version string, major bool) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(pkg, version, major)
 
 	if major {
 		// Drop previous and replace with new:
@@ -317,6 +321,77 @@ func (u *Updater) updateGoMod(pkg, version string, major bool) error {
 	defer out.Close()
 	if _, err := out.Write(updated); err != nil {
 		return fmt.Errorf("writing updated go.mod: %w", err)
+	}
+	return nil
+}
+
+func (u *Updater) updateSourceCode(pkg, version string) error {
+	pattern, err := regexp.Compile(strings.ReplaceAll(pkg, ".", "\\."))
+	if err != nil {
+		return err
+	}
+
+	replacement := path.Join(path.Dir(pkg), semver.Major(version))
+
+	return filepath.Walk(u.wt.Filesystem.Root(), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			logrus.WithError(err).WithField("path", path).Warn("error accessing path")
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) != ".go" {
+			return nil
+		}
+		if err := u.updateFile(path, info, pattern, replacement); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (u *Updater) updateFile(path string, info os.FileInfo, pattern *regexp.Regexp, replace string) error {
+	f, err := os.OpenFile(path, os.O_RDWR, info.Mode())
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	var changed bool
+	var importing bool
+	in := bufio.NewScanner(f)
+	var buf bytes.Buffer
+	for in.Scan() {
+		line := in.Text()
+		if line == "import (" {
+			importing = true
+		} else if line == ")" && importing {
+			importing = false
+		}
+
+		if importing || strings.HasPrefix(line, "import") {
+			replaced := pattern.ReplaceAllString(line, replace)
+			changed = changed || replaced != line
+			line = replaced
+		}
+
+		_, _ = fmt.Fprintln(&buf, line)
+	}
+	if err := in.Err(); err != nil {
+		return err
+	}
+
+	if !changed {
+		return nil
+	}
+
+	if _, err := f.Seek(0, 0); err != nil {
+		return err
+	}
+	if _, err := io.Copy(f, &buf); err != nil {
+		return err
 	}
 	return nil
 }
