@@ -16,5 +16,3 @@ jobs:
         env:
           INPUT_BRANCHES: |
             main
-      - run: git branch
-      - run: git push --all

@@ -8,7 +8,7 @@ import (
 	"github.com/thepwagner/action-update-go/gomod"
 )
 
-func Schedule(_ context.Context, env cmd.Environment, _ interface{}) error {
+func Schedule(ctx context.Context, env cmd.Environment, _ interface{}) error {
 	repo, err := git.PlainOpen(".")
 	if err != nil {
 		return err
@@ -19,7 +19,7 @@ func Schedule(_ context.Context, env cmd.Environment, _ interface{}) error {
 	}
 
 	for _, b := range env.Branches() {
-		if err := updater.UpdateAll(b); err != nil {
+		if err := updater.UpdateAll(ctx, b); err != nil {
 			return err
 		}
 	}

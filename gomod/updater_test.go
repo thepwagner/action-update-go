@@ -1,14 +1,15 @@
 package gomod_test
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	copy2 "github.com/otiai10/copy"
@@ -25,10 +26,10 @@ func init() {
 func TestUpdater_UpdateAll_Simple(t *testing.T) {
 	// Update and interrogate the logrus branch:
 	r := updateAllInFixture(t, "simple")
-	cfg, wt := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/sirupsen/logrus/")
+	branches, wt := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/sirupsen/logrus/")
 
 	// We expect 2 new branches: logrus and pkg/errors
-	assert.Len(t, cfg.Branches, 3)
+	assert.Len(t, branches, 3)
 
 	// Logrus is upgraded, pkg/errors is not:
 	goMod := worktreeFile(t, wt, gomod.GoModFn)
@@ -47,10 +48,10 @@ func TestUpdater_UpdateAll_Simple(t *testing.T) {
 func TestUpdater_UpdateAll_Vendor(t *testing.T) {
 	// Update and interrogate the logrus branch:
 	r := updateAllInFixture(t, "vendor")
-	cfg, wt := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/sirupsen/logrus/")
+	branches, wt := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/sirupsen/logrus/")
 
 	// We expect 1 new branches: logrus
-	assert.Len(t, cfg.Branches, 2)
+	assert.Len(t, branches, 2)
 
 	// Logrus is upgraded:
 	goMod := worktreeFile(t, wt, gomod.GoModFn)
@@ -64,10 +65,10 @@ func TestUpdater_UpdateAll_Vendor(t *testing.T) {
 func TestUpdater_UpdateAll_Major(t *testing.T) {
 	// Update and interrogate the logrus branch:
 	r := updateAllInFixture(t, "major")
-	cfg, wt := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/caarlos0/env/")
+	branches, wt := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/caarlos0/env/")
 
 	// We expect 1 new branches: env
-	assert.Len(t, cfg.Branches, 2)
+	assert.Len(t, branches, 2)
 
 	// env is upgraded:
 	goMod := worktreeFile(t, wt, gomod.GoModFn)
@@ -76,27 +77,27 @@ func TestUpdater_UpdateAll_Major(t *testing.T) {
 }
 
 func updateAllInFixture(t *testing.T, fixture string) *git.Repository {
-	r := fixtureRepo(t, fixture)
-	u, err := gomod.NewUpdater(r)
+	upstream, downstream := fixtureRepos(t, fixture)
+	u, err := gomod.NewUpdater(downstream)
 	require.NoError(t, err)
-	err = u.UpdateAll("master")
+	err = u.UpdateAll(context.Background(), "master")
 	require.NoError(t, err)
-	return r
+	return upstream
 }
 
-func fixtureRepo(t *testing.T, fixture string) *git.Repository {
-	// Init repo in a tempdir:
-	tmpDir := t.TempDir()
-	t.Logf("repo dir: %s", tmpDir)
-	repo, err := git.PlainInit(tmpDir, false)
+func fixtureRepos(t *testing.T, fixture string) (upstream, downstream *git.Repository) {
+	// Init upstream in a tempdir:
+	upstreamRepo := t.TempDir()
+	t.Logf("upstream dir: %s", upstreamRepo)
+	upstream, err := git.PlainInit(upstreamRepo, false)
 	require.NoError(t, err)
 
 	// Fill with files from the fixture:
-	err = copy2.Copy(fmt.Sprintf("../fixtures/%s", fixture), tmpDir)
+	err = copy2.Copy(fmt.Sprintf("../fixtures/%s", fixture), upstreamRepo)
 	require.NoError(t, err)
 
 	// Add as initial commit:
-	wt, err := repo.Worktree()
+	wt, err := upstream.Worktree()
 	require.NoError(t, err)
 	err = wt.AddGlob(".")
 	require.NoError(t, err)
@@ -107,17 +108,25 @@ func fixtureRepo(t *testing.T, fixture string) *git.Repository {
 		},
 	})
 	require.NoError(t, err)
-	err = repo.CreateBranch(&config.Branch{
-		Name: "main",
+
+	downstreamRepo := t.TempDir()
+	t.Logf("downstream dir: %s", downstreamRepo)
+	downstream, err = git.PlainClone(downstreamRepo, false, &git.CloneOptions{
+		URL: upstreamRepo,
 	})
 	require.NoError(t, err)
-	return repo
+	return upstream, downstream
 }
 
-func checkoutBranchWithPrefix(t *testing.T, r *git.Repository, prefix string) (*config.Config, *git.Worktree) {
-	cfg, err := r.Config()
-	require.NoError(t, err)
-	branch := branchWithPrefix(cfg, prefix)
+func checkoutBranchWithPrefix(t *testing.T, r *git.Repository, prefix string) (map[string]struct{}, *git.Worktree) {
+	branches := iterateBranches(t, r)
+	var branch string
+	for b := range branches {
+		if strings.HasPrefix(b, prefix) {
+			branch = b
+			break
+		}
+	}
 	require.NotEqualf(t, "", branch, "branch %q not found", prefix)
 
 	wt, err := r.Worktree()
@@ -127,16 +136,22 @@ func checkoutBranchWithPrefix(t *testing.T, r *git.Repository, prefix string) (*
 		Force:  true,
 	})
 	require.NoError(t, err)
-	return cfg, wt
+	return branches, wt
 }
 
-func branchWithPrefix(cfg *config.Config, prefix string) string {
-	for b := range cfg.Branches {
-		if strings.HasPrefix(b, prefix) {
-			return b
+func iterateBranches(t *testing.T, r *git.Repository) map[string]struct{} {
+	ret := map[string]struct{}{}
+	branchIter, err := r.Branches()
+	require.NoError(t, err)
+	for {
+		next, err := branchIter.Next()
+		if err == io.EOF {
+			break
 		}
+		require.NoError(t, err)
+		ret[next.Name().Short()] = struct{}{}
 	}
-	return ""
+	return ret
 }
 
 func worktreeFile(t *testing.T, wt *git.Worktree, path string) string {

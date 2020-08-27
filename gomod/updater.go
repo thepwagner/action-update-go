@@ -3,6 +3,7 @@ package gomod
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfetch"
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfile"
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modload"
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
@@ -71,7 +73,7 @@ func NewUpdater(repo *git.Repository) (*Updater, error) {
 	}, nil
 }
 
-func (u *Updater) UpdateAll(baseBranch string) error {
+func (u *Updater) UpdateAll(ctx context.Context, baseBranch string) error {
 	log := logrus.WithField("branch", baseBranch)
 
 	// Switch to the target branch:
@@ -108,7 +110,7 @@ func (u *Updater) UpdateAll(baseBranch string) error {
 				continue
 			}
 			if latest != "" {
-				if err := u.update(baseRef.Hash(), pkg, latest, true); err != nil {
+				if err := u.update(ctx, baseRef.Hash(), pkg, latest, true); err != nil {
 					return fmt.Errorf("upgrading %q: %w", pkg, err)
 				}
 				continue
@@ -124,7 +126,7 @@ func (u *Updater) UpdateAll(baseBranch string) error {
 			continue
 		}
 
-		if err := u.update(baseRef.Hash(), pkg, latest, false); err != nil {
+		if err := u.update(ctx, baseRef.Hash(), pkg, latest, false); err != nil {
 			return fmt.Errorf("upgrading %q: %w", pkg, err)
 		}
 	}
@@ -192,7 +194,9 @@ func (u *Updater) checkForMajorUpdate(req *modfile.Require) (latestVersion strin
 	if err != nil {
 		return "", fmt.Errorf("querying for latest version: %w", err)
 	}
-	// TODO: how does "not found" flow through this?
+	if modfetch.IsPseudoVersion(latest.Version) {
+		return "", nil
+	}
 
 	log.WithFields(logrus.Fields{
 		"latest_version":  latest.Version,
@@ -205,7 +209,7 @@ func pkgMajorVersion(pkg string, version int64) string {
 	return fmt.Sprintf("%s/v%d", pkg[:strings.LastIndex(pkg, "/")], version)
 }
 
-func (u *Updater) update(base plumbing.Hash, pkg, version string, major bool) error {
+func (u *Updater) update(ctx context.Context, base plumbing.Hash, pkg, version string, major bool) error {
 	if err := u.createUpdateBranch(base, pkg, version, major); err != nil {
 		return err
 	}
@@ -219,6 +223,9 @@ func (u *Updater) update(base plumbing.Hash, pkg, version string, major bool) er
 		return err
 	}
 
+	if err := u.push(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -475,5 +482,12 @@ func (u *Updater) commit(message string) error {
 		return fmt.Errorf("committing branch: %w", err)
 	}
 	logrus.WithField("commit", commit.String()).Info("committed upgrade")
+	return nil
+}
+
+func (u *Updater) push(ctx context.Context) error {
+	if err := u.repo.PushContext(ctx, &git.PushOptions{}); err != nil {
+		return fmt.Errorf("pushing: %w", err)
+	}
 	return nil
 }
