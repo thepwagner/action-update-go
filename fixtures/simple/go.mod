@@ -1,4 +1,4 @@
-module github.com/thepwagner/action-update-go
+module github.com/thepwagner/action-update-go/simple
 
 go 1.15
 

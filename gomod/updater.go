@@ -18,7 +18,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const goModFn = "go.mod"
+const (
+	goModFn         = "go.mod"
+	vendorModulesFn = "vendor/modules.txt"
+)
 
 type Updater struct {
 	repo      *git.Repository
@@ -199,6 +202,12 @@ func (u *Updater) updateFiles(pkg, version string) error {
 	if err := u.updateGoSum(); err != nil {
 		return err
 	}
+
+	if u.hasVendor() {
+		if err := u.updateVendor(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -237,6 +246,18 @@ func (u *Updater) updateGoSum() error {
 		}
 	}
 
+	return nil
+}
+
+func (u *Updater) hasVendor() bool {
+	_, err := u.wt.Filesystem.Stat(vendorModulesFn)
+	return err == nil
+}
+
+func (u *Updater) updateVendor() error {
+	if err := u.worktreeCmd("go", "mod", "vendor"); err != nil {
+		return fmt.Errorf("go vendoring: %w", err)
+	}
 	return nil
 }
 
