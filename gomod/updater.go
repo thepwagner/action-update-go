@@ -124,6 +124,12 @@ func (u *Updater) UpdateAll(ctx context.Context, baseBranch string) error {
 	for _, req := range goMod.Require {
 		pkg := req.Mod.Path
 		log := logrus.WithField("pkg", pkg)
+
+		if modfetch.IsPseudoVersion(req.Mod.Version) {
+			log.WithField("version", req.Mod.Version).Debug("skipping psuedoversion module")
+			continue
+		}
+
 		update := moduleUpdate{
 			baseBranch: baseBranch,
 			baseHash:   baseRef.Hash(),
