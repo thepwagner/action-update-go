@@ -590,6 +590,9 @@ func (u *Updater) createPR(ctx context.Context, update moduleUpdate) error {
 		Head:  github.String(update.branchName()),
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "pull request already exists") {
+			return nil
+		}
 		return fmt.Errorf("creating PR: %w", err)
 	}
 	logrus.WithField("pr_id", res.ID).Info("created pull request")
