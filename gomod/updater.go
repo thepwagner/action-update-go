@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	goModFn         = "go.mod"
-	vendorModulesFn = "vendor/modules.txt"
+	GoModFn         = "go.mod"
+	VendorModulesFn = "vendor/modules.txt"
 )
 
 type Updater struct {
@@ -108,7 +108,7 @@ func (u *Updater) UpdateAll(baseBranch string) error {
 }
 
 func (u *Updater) parseGoMod() (*modfile.File, error) {
-	f, err := u.wt.Filesystem.Open(goModFn)
+	f, err := u.wt.Filesystem.Open(GoModFn)
 	if err != nil {
 		return nil, fmt.Errorf("opening go.mod: %w", err)
 	}
@@ -118,7 +118,7 @@ func (u *Updater) parseGoMod() (*modfile.File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading go.mod: %w", err)
 	}
-	parsed, err := modfile.Parse(goModFn, b, nil)
+	parsed, err := modfile.Parse(GoModFn, b, nil)
 	if err != nil {
 		return nil, fmt.Errorf("parsing go.mod: %w", err)
 	}
@@ -223,7 +223,7 @@ func (u *Updater) updateGoMod(pkg, version string) error {
 	if err != nil {
 		return fmt.Errorf("formatting go.mod: %w", err)
 	}
-	out, err := u.wt.Filesystem.OpenFile(goModFn, os.O_WRONLY, 0644)
+	out, err := u.wt.Filesystem.OpenFile(GoModFn, os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("opening go.mod: %w", err)
 	}
@@ -250,7 +250,7 @@ func (u *Updater) updateGoSum() error {
 }
 
 func (u *Updater) hasVendor() bool {
-	_, err := u.wt.Filesystem.Stat(vendorModulesFn)
+	_, err := u.wt.Filesystem.Stat(VendorModulesFn)
 	return err == nil
 }
 

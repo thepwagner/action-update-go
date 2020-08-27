@@ -3,6 +3,7 @@ package gomod_test
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -21,43 +22,78 @@ func init() {
 	logrus.SetLevel(logrus.DebugLevel)
 }
 
-func TestUpdater_UpdateAll(t *testing.T) {
+func TestUpdater_UpdateAll_Simple(t *testing.T) {
 	r := fixtureRepo(t, "simple")
 	u, err := gomod.NewUpdater(r)
 	require.NoError(t, err)
-
 	err = u.UpdateAll("master")
 	require.NoError(t, err)
 
+	// Interrogate the logrus branch:
+	cfg, wt := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/sirupsen/logrus/")
+
 	// We expect 2 new branches: logrus and pkg/errors
+	assert.Len(t, cfg.Branches, 3)
+
+	// Logrus is upgraded, pkg/errors is not:
+	goMod := worktreeFile(t, wt, gomod.GoModFn)
+	assert.NotContains(t, goMod, "github.com/sirupsen/logrus v1.5.0", "logrus not updated")
+	assert.Contains(t, goMod, "github.com/sirupsen/logrus")
+	assert.Contains(t, goMod, "github.com/pkg/errors v0.8.0", "pkg/errors updated in wrong branch")
+	goSum := worktreeFile(t, wt, "go.sum")
+	assert.NotContains(t, goSum, "github.com/sirupsen/logrus v1.5.0", "go.sum not tidied")
+	assert.Contains(t, goSum, "github.com/sirupsen/logrus")
+
+	// No needless vendoring:
+	_, err = wt.Filesystem.Stat(gomod.VendorModulesFn)
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestUpdater_UpdateAll_Vendor(t *testing.T) {
+	r := fixtureRepo(t, "vendor")
+	u, err := gomod.NewUpdater(r)
+	require.NoError(t, err)
+	err = u.UpdateAll("master")
+	require.NoError(t, err)
+
+	// Interrogate the logrus branch:
+	cfg, wt := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/sirupsen/logrus/")
+
+	// We expect 1 new branches: logrus
+	assert.Len(t, cfg.Branches, 2)
+
+	// Logrus is upgraded:
+	goMod := worktreeFile(t, wt, gomod.GoModFn)
+	assert.NotContains(t, goMod, "github.com/sirupsen/logrus v1.5.0", "logrus not updated")
+	assert.Contains(t, goMod, "github.com/sirupsen/logrus")
+
+	modulesTxt := worktreeFile(t, wt, gomod.VendorModulesFn)
+	assert.NotContains(t, modulesTxt, "github.com/sirupsen/logrus v1.5.0", "logrus not vendored")
+}
+
+func checkoutBranchWithPrefix(t *testing.T, r *git.Repository, prefix string) (*config.Config, *git.Worktree) {
 	cfg, err := r.Config()
 	require.NoError(t, err)
-	assert.Len(t, cfg.Branches, 3)
-	var logrusBranch string
-	for b := range cfg.Branches {
-		if strings.HasPrefix(b, "action-update-go/github.com/sirupsen/logrus/") {
-			logrusBranch = b
-			break
-		}
-	}
-	require.NotEqual(t, "", logrusBranch, "logrus update branch not found")
+	branch := branchWithPrefix(cfg, prefix)
+	require.NotEqualf(t, "", branch, "branch %q not found", prefix)
 
 	wt, err := r.Worktree()
 	require.NoError(t, err)
 	err = wt.Checkout(&git.CheckoutOptions{
-		Branch: plumbing.NewBranchReferenceName(logrusBranch),
+		Branch: plumbing.NewBranchReferenceName(branch),
 		Force:  true,
 	})
 	require.NoError(t, err)
+	return cfg, wt
+}
 
-	goMod := worktreeFile(t, wt, "go.mod")
-	assert.NotContains(t, goMod, "github.com/sirupsen/logrus v1.5.0", "logrus not updated")
-	assert.Contains(t, goMod, "github.com/sirupsen/logrus")
-	assert.Contains(t, goMod, "github.com/pkg/errors v0.8.0", "pkg/errors updated in wrong branch")
-
-	goSum := worktreeFile(t, wt, "go.sum")
-	assert.NotContains(t, goSum, "github.com/sirupsen/logrus v1.5.0", "go.sum not tidied")
-	assert.Contains(t, goSum, "github.com/sirupsen/logrus")
+func branchWithPrefix(cfg *config.Config, prefix string) string {
+	for b := range cfg.Branches {
+		if strings.HasPrefix(b, prefix) {
+			return b
+		}
+	}
+	return ""
 }
 
 func worktreeFile(t *testing.T, wt *git.Worktree, path string) string {
