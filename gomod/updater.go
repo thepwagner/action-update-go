@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -547,7 +548,7 @@ func (u moduleUpdate) branchName() string {
 	} else {
 		branchPkg = u.pkg
 	}
-	return fmt.Sprintf("action-update-go/%s/%s", branchPkg, u.next)
+	return fmt.Sprintf("action-update-go/%s/%s/%s", u.baseBranch, branchPkg, u.next)
 }
 
 func (u *Updater) createPR(ctx context.Context, update moduleUpdate) error {
@@ -557,11 +558,34 @@ func (u *Updater) createPR(ctx context.Context, update moduleUpdate) error {
 
 	// TODO: dependency inject this
 	title := fmt.Sprintf("Update %s from %s to %s", update.pkg, update.previous, update.next)
-	body := "you're welcome\nTODO: release notes or something?"
+	var body strings.Builder
+	_, _ = fmt.Fprintln(&body, "you're welcome")
+	_, _ = fmt.Fprintln(&body, "")
+	_, _ = fmt.Fprintln(&body, "TODO: release notes or something?")
+	_, _ = fmt.Fprintln(&body, "")
+	_, _ = fmt.Fprintln(&body, "```json")
+	major := semver.Major(update.previous) != semver.Major(update.next)
+	minor := !major && semver.MajorMinor(update.previous) != semver.MajorMinor(update.next)
+	details := struct {
+		Major bool `json:"major"`
+		Minor bool `json:"minor"`
+		Patch bool `json:"patch"`
+	}{
+		Major: major,
+		Minor: minor,
+		Patch: !major && !minor,
+	}
+	encoder := json.NewEncoder(&body)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(&details); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintln(&body, "")
+	_, _ = fmt.Fprintln(&body, "```")
 
 	res, _, err := u.github.PullRequests.Create(ctx, u.owner, u.repoName, &github.NewPullRequest{
 		Title: &title,
-		Body:  &body,
+		Body:  github.String(body.String()),
 		Base:  &update.baseBranch,
 		Head:  github.String(update.branchName()),
 	})
