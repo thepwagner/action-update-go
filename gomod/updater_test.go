@@ -23,13 +23,8 @@ func init() {
 }
 
 func TestUpdater_UpdateAll_Simple(t *testing.T) {
-	r := fixtureRepo(t, "simple")
-	u, err := gomod.NewUpdater(r)
-	require.NoError(t, err)
-	err = u.UpdateAll("master")
-	require.NoError(t, err)
-
-	// Interrogate the logrus branch:
+	// Update and interrogate the logrus branch:
+	r := updateAllInFixture(t, "simple")
 	cfg, wt := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/sirupsen/logrus/")
 
 	// We expect 2 new branches: logrus and pkg/errors
@@ -45,18 +40,13 @@ func TestUpdater_UpdateAll_Simple(t *testing.T) {
 	assert.Contains(t, goSum, "github.com/sirupsen/logrus")
 
 	// No needless vendoring:
-	_, err = wt.Filesystem.Stat(gomod.VendorModulesFn)
+	_, err := wt.Filesystem.Stat(gomod.VendorModulesFn)
 	assert.True(t, os.IsNotExist(err))
 }
 
 func TestUpdater_UpdateAll_Vendor(t *testing.T) {
-	r := fixtureRepo(t, "vendor")
-	u, err := gomod.NewUpdater(r)
-	require.NoError(t, err)
-	err = u.UpdateAll("master")
-	require.NoError(t, err)
-
-	// Interrogate the logrus branch:
+	// Update and interrogate the logrus branch:
+	r := updateAllInFixture(t, "vendor")
 	cfg, wt := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/sirupsen/logrus/")
 
 	// We expect 1 new branches: logrus
@@ -69,6 +59,55 @@ func TestUpdater_UpdateAll_Vendor(t *testing.T) {
 
 	modulesTxt := worktreeFile(t, wt, gomod.VendorModulesFn)
 	assert.NotContains(t, modulesTxt, "github.com/sirupsen/logrus v1.5.0", "logrus not vendored")
+}
+
+func TestUpdater_UpdateAll_Major(t *testing.T) {
+	// Update and interrogate the logrus branch:
+	r := updateAllInFixture(t, "major")
+	cfg, _ := checkoutBranchWithPrefix(t, r, "action-update-go/github.com/caarlos0/env/")
+
+	// We expect 1 new branches: env
+	assert.Len(t, cfg.Branches, 2)
+
+}
+
+func updateAllInFixture(t *testing.T, fixture string) *git.Repository {
+	r := fixtureRepo(t, fixture)
+	u, err := gomod.NewUpdater(r)
+	require.NoError(t, err)
+	err = u.UpdateAll("master")
+	require.NoError(t, err)
+	return r
+}
+
+func fixtureRepo(t *testing.T, fixture string) *git.Repository {
+	// Init repo in a tempdir:
+	tmpDir := t.TempDir()
+	t.Logf("repo dir: %s", tmpDir)
+	repo, err := git.PlainInit(tmpDir, false)
+	require.NoError(t, err)
+
+	// Fill with files from the fixture:
+	err = copy2.Copy(fmt.Sprintf("../fixtures/%s", fixture), tmpDir)
+	require.NoError(t, err)
+
+	// Add as initial commit:
+	wt, err := repo.Worktree()
+	require.NoError(t, err)
+	err = wt.AddGlob(".")
+	require.NoError(t, err)
+	_, err = wt.Commit("initial", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "test",
+			Email: "test@test.com",
+		},
+	})
+	require.NoError(t, err)
+	err = repo.CreateBranch(&config.Branch{
+		Name: "main",
+	})
+	require.NoError(t, err)
+	return repo
 }
 
 func checkoutBranchWithPrefix(t *testing.T, r *git.Repository, prefix string) (*config.Config, *git.Worktree) {
@@ -103,34 +142,4 @@ func worktreeFile(t *testing.T, wt *git.Worktree, path string) string {
 	b, err := ioutil.ReadAll(goModFile)
 	require.NoError(t, err)
 	return string(b)
-}
-
-func fixtureRepo(t *testing.T, fixture string) *git.Repository {
-	// Init repo in a tempdir:
-	tmpDir := t.TempDir()
-	t.Logf("repo dir: %s", tmpDir)
-	repo, err := git.PlainInit(tmpDir, false)
-	require.NoError(t, err)
-
-	// Fill with files from the fixture:
-	err = copy2.Copy(fmt.Sprintf("../fixtures/%s", fixture), tmpDir)
-	require.NoError(t, err)
-
-	// Add as initial commit:
-	wt, err := repo.Worktree()
-	require.NoError(t, err)
-	err = wt.AddGlob(".")
-	require.NoError(t, err)
-	_, err = wt.Commit("initial", &git.CommitOptions{
-		Author: &object.Signature{
-			Name:  "test",
-			Email: "test@test.com",
-		},
-	})
-	require.NoError(t, err)
-	err = repo.CreateBranch(&config.Branch{
-		Name: "main",
-	})
-	require.NoError(t, err)
-	return repo
 }

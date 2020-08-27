@@ -6,6 +6,10 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfile"
@@ -24,11 +28,12 @@ const (
 )
 
 type Updater struct {
-	repo      *git.Repository
-	wt        *git.Worktree
-	Tidy      bool
-	Author    GitIdentity
-	Committer GitIdentity
+	repo         *git.Repository
+	wt           *git.Worktree
+	Tidy         bool
+	Author       GitIdentity
+	Committer    GitIdentity
+	MajorVersion bool
 }
 
 type GitIdentity struct {
@@ -48,9 +53,10 @@ func NewUpdater(repo *git.Repository) (*Updater, error) {
 		return nil, fmt.Errorf("tree is not clean, reset") // or implement force...
 	}
 	return &Updater{
-		repo: repo,
-		wt:   wt,
-		Tidy: true,
+		repo:         repo,
+		wt:           wt,
+		Tidy:         true,
+		MajorVersion: true,
 		Author: GitIdentity{
 			Name:  "actions-update-go",
 			Email: "noreply@github.com",
@@ -91,16 +97,31 @@ func (u *Updater) UpdateAll(baseBranch string) error {
 	for _, req := range goMod.Require {
 		pkg := req.Mod.Path
 		log := logrus.WithField("pkg", pkg)
+
+		if u.MajorVersion {
+			latest, err := u.checkForMajorUpdate(req)
+			if err != nil {
+				log.WithError(err).Warn("error checking for major update")
+				continue
+			}
+			if latest != "" {
+				if err := u.update(baseRef.Hash(), pkg, latest, true); err != nil {
+					return fmt.Errorf("upgrading %q: %w", pkg, err)
+				}
+				continue
+			}
+		}
+
 		latest, err := u.checkForUpdate(req)
 		if err != nil {
-			log.WithError(err).Warn("error checking for updates")
+			log.WithError(err).Warn("error checking for update")
 			continue
 		}
 		if latest == "" {
 			continue
 		}
 
-		if err := u.update(baseRef.Hash(), pkg, latest); err != nil {
+		if err := u.update(baseRef.Hash(), pkg, latest, false); err != nil {
 			return fmt.Errorf("upgrading %q: %w", pkg, err)
 		}
 	}
@@ -135,26 +156,58 @@ func (u *Updater) checkForUpdate(req *modfile.Require) (latestVersion string, er
 	if err != nil {
 		return "", fmt.Errorf("querying for latest version: %w", err)
 	}
+
+	// Is this an upgrade?
 	log = log.WithFields(logrus.Fields{
 		"latest_version":  latest.Version,
 		"current_version": version,
 	})
+	if upgrade := semver.Compare(version, latest.Version) < 0; upgrade {
+		log.Info("upgrade available")
+		return latest.Version, nil
+	}
+	log.Debug("no update available")
+	return "", nil
+}
 
-	upgrade := semver.Compare(version, latest.Version) < 0
-	if !upgrade {
-		log.Debug("no update available")
+var pkgMajorVersionRE = regexp.MustCompile("/v([0-9]+)$")
+
+func (u *Updater) checkForMajorUpdate(req *modfile.Require) (latestVersion string, err error) {
+	// Does this look like a package
+	pkg := req.Mod.Path
+	m := pkgMajorVersionRE.FindStringSubmatch(pkg)
+	if len(m) == 0 {
 		return "", nil
 	}
-	log.Info("upgrade available")
+	currentMajorVersion, _ := strconv.ParseInt(m[1], 10, 32)
+
+	version := req.Mod.Version
+	log := logrus.WithField("pkg", pkg)
+	log.Debug("querying latest major version")
+
+	latest, err := modload.Query(pkgMajorVersion(pkg, currentMajorVersion+1), "latest", nil)
+	if err != nil {
+		return "", fmt.Errorf("querying for latest version: %w", err)
+	}
+	// TODO: how does "not found" flow through this?
+
+	log.WithFields(logrus.Fields{
+		"latest_version":  latest.Version,
+		"current_version": version,
+	}).Info("major upgrade available")
 	return latest.Version, nil
 }
 
-func (u *Updater) update(base plumbing.Hash, pkg, version string) error {
-	if err := u.createUpdateBranch(base, pkg, version); err != nil {
+func pkgMajorVersion(pkg string, version int64) string {
+	return fmt.Sprintf("%s/v%d", pkg[:strings.LastIndex(pkg, "/")], version)
+}
+
+func (u *Updater) update(base plumbing.Hash, pkg, version string, major bool) error {
+	if err := u.createUpdateBranch(base, pkg, version, major); err != nil {
 		return err
 	}
 
-	if err := u.updateFiles(pkg, version); err != nil {
+	if err := u.updateFiles(pkg, version, major); err != nil {
 		return err
 	}
 
@@ -166,13 +219,19 @@ func (u *Updater) update(base plumbing.Hash, pkg, version string) error {
 	return nil
 }
 
-func (u *Updater) createUpdateBranch(base plumbing.Hash, pkg, version string) error {
+func (u *Updater) createUpdateBranch(base plumbing.Hash, pkg, version string, major bool) error {
 	log := logrus.WithFields(logrus.Fields{
 		"pkg":     pkg,
 		"version": version,
 	})
 	// Switch to the target branch:
-	branchName := fmt.Sprintf("action-update-go/%s/%s", pkg, version)
+	var branchPkg string
+	if major {
+		branchPkg = path.Dir(pkg)
+	} else {
+		branchPkg = pkg
+	}
+	branchName := fmt.Sprintf("action-update-go/%s/%s", branchPkg, version)
 	log.WithField("branch", branchName).Debug("checking out target branch")
 	branchRef := plumbing.NewBranchReferenceName(branchName)
 	err := u.wt.Checkout(&git.CheckoutOptions{
@@ -195,10 +254,15 @@ func (u *Updater) createUpdateBranch(base plumbing.Hash, pkg, version string) er
 	return nil
 }
 
-func (u *Updater) updateFiles(pkg, version string) error {
-	if err := u.updateGoMod(pkg, version); err != nil {
+func (u *Updater) updateFiles(pkg, version string, major bool) error {
+	if err := u.updateGoMod(pkg, version, major); err != nil {
 		return err
 	}
+
+	if major {
+		fmt.Println("TODO: bump the coooodez")
+	}
+
 	if err := u.updateGoSum(); err != nil {
 		return err
 	}
@@ -211,18 +275,41 @@ func (u *Updater) updateFiles(pkg, version string) error {
 	return nil
 }
 
-func (u *Updater) updateGoMod(pkg, version string) error {
+func (u *Updater) updateGoMod(pkg, version string, major bool) error {
 	goMod, err := u.parseGoMod()
 	if err != nil {
 		return err
 	}
-	if err := goMod.AddRequire(pkg, version); err != nil {
-		return fmt.Errorf("adding requirement: %w", err)
+	fmt.Println(pkg, version, major)
+
+	if major {
+		// Drop previous and replace with new:
+		if err := goMod.DropRequire(pkg); err != nil {
+			return fmt.Errorf("dropping requirement: %w", err)
+		}
+		pkgNewMajor := path.Join(path.Dir(pkg), semver.Major(version))
+		if err := goMod.AddRequire(pkgNewMajor, version); err != nil {
+			return fmt.Errorf("dropping requirement: %w", err)
+		}
+	} else {
+		// Replace the version:
+		if err := goMod.AddRequire(pkg, version); err != nil {
+			return fmt.Errorf("adding requirement: %w", err)
+		}
 	}
+
 	updated, err := goMod.Format()
 	if err != nil {
 		return fmt.Errorf("formatting go.mod: %w", err)
 	}
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		out := logrus.StandardLogger().WriterLevel(logrus.DebugLevel)
+		defer out.Close()
+		_, _ = fmt.Fprintln(out, "-- go.mod --")
+		_, _ = out.Write(updated)
+		fmt.Fprintln(out, "-- /go.mod --")
+	}
+
 	out, err := u.wt.Filesystem.OpenFile(GoModFn, os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("opening go.mod: %w", err)
