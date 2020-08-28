@@ -139,7 +139,7 @@ github.com/sirupsen/logrus
 ## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# github.com/thepwagner/jithub v1.0.0
+# github.com/thepwagner/jithub v1.0.2
 ## explicit
 github.com/thepwagner/jithub/api
 github.com/thepwagner/jithub/gh
