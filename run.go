@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/cmd"
@@ -34,11 +32,5 @@ func Run(ctx context.Context, handlers HandlersByEventName) error {
 	// Set GOPRIVATE for private modules:
 	_ = os.Setenv("GOPRIVATE", "*")
 
-	// Configure git to use access token:
-	if err := exec.Command("git", "config", "--global",
-		fmt.Sprintf(`url."https://x-access-token:%s@github.com".insteadOf`, env.GitHubToken),
-		`"https://github.com"`).Run(); err != nil {
-		return err
-	}
 	return h(ctx, env, evt)
 }
