@@ -99,14 +99,26 @@ func NewUpdater(repo *git.Repository, ghRepo, token string) (*Updater, error) {
 func (u *Updater) UpdateAll(ctx context.Context, baseBranch string) error {
 	log := logrus.WithField("branch", baseBranch)
 
-	// Switch to the target branch:
-	log.Debug("checking out base branch")
 	baseBranchRef := plumbing.NewBranchReferenceName(baseBranch)
-	err := u.wt.Checkout(&git.CheckoutOptions{
+	checkoutOpts := &git.CheckoutOptions{
 		Branch: baseBranchRef,
 		Force:  true,
-	})
-	if err != nil {
+	}
+
+	if _, err := u.repo.Reference(baseBranchRef, true); err == plumbing.ErrReferenceNotFound {
+		originRef, err := u.repo.Reference(plumbing.NewRemoteReferenceName("origin", baseBranch), false)
+		if err != nil {
+			return fmt.Errorf("querying origin ref: %w", err)
+		}
+		checkoutOpts.Create = true
+		checkoutOpts.Hash = originRef.Hash()
+	} else if err != nil {
+		return err
+	}
+
+	// Switch to the target branch:
+	log.Debug("checking out base branch")
+	if err := u.wt.Checkout(checkoutOpts); err != nil {
 		return fmt.Errorf("switching to target branch: %w", err)
 	}
 	baseRef, err := u.repo.Reference(baseBranchRef, true)
