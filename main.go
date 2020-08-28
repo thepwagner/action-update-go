@@ -5,11 +5,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/handler"
-	"github.com/thepwagner/jithub/api"
 )
-
-// FIXME: temp private dependency for testing
-var _ *api.Handler = nil
 
 var handlers = HandlersByEventName{
 	"issue_comment":                  handler.IssueComment,
