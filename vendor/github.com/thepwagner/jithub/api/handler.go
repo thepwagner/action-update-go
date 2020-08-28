@@ -22,7 +22,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Is this a maven repository request?
 	mvnPackage := MavenPackageFromURL(r.URL.Path)
 	if mvnPackage == nil {
-		logrus.WithField("path", r.URL.Path).Debug("not a maven package")
+		logrus.WithField("path", r.URL.Path).Debug("not even a maven package")
 		http.NotFound(w, r)
 		return
 	}
