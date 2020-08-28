@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/cmd"
@@ -11,6 +12,8 @@ import (
 type HandlersByEventName map[string]handler.Handler
 
 func Run(ctx context.Context, handlers HandlersByEventName) error {
+	_ = os.Setenv("GOPRIVATE", "*")
+
 	env, err := cmd.ParseEnvironment()
 	if err != nil {
 		return err
