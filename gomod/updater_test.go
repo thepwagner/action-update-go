@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	copy2 "github.com/otiai10/copy"
@@ -23,13 +24,15 @@ func init() {
 	logrus.SetLevel(logrus.DebugLevel)
 }
 
+const baseBranchCount = 2
+
 func TestUpdater_UpdateAll_Simple(t *testing.T) {
 	// Update and interrogate the logrus branch:
 	r := updateAllInFixture(t, "simple")
 	branches, wt := checkoutBranchWithPrefix(t, r, "action-update-go/master/github.com/sirupsen/logrus/")
 
 	// We expect 2 new branches: logrus and pkg/errors
-	assert.Len(t, branches, 3)
+	assert.Len(t, branches, baseBranchCount+2)
 
 	// Logrus is upgraded, pkg/errors is not:
 	goMod := worktreeFile(t, wt, gomod.GoModFn)
@@ -51,7 +54,7 @@ func TestUpdater_UpdateAll_Vendor(t *testing.T) {
 	branches, wt := checkoutBranchWithPrefix(t, r, "action-update-go/master/github.com/sirupsen/logrus/")
 
 	// We expect 1 new branches: logrus
-	assert.Len(t, branches, 2)
+	assert.Len(t, branches, baseBranchCount+1)
 
 	// Logrus is upgraded:
 	goMod := worktreeFile(t, wt, gomod.GoModFn)
@@ -68,12 +71,28 @@ func TestUpdater_UpdateAll_Major(t *testing.T) {
 	branches, wt := checkoutBranchWithPrefix(t, r, "action-update-go/master/github.com/caarlos0/env/")
 
 	// We expect 1 new branches: env
-	assert.Len(t, branches, 2)
+	assert.Len(t, branches, baseBranchCount+1)
 
 	// env is upgraded:
 	goMod := worktreeFile(t, wt, gomod.GoModFn)
 	assert.NotContains(t, goMod, "github.com/caarlos0/env/v5", "env not updated")
 	assert.Contains(t, goMod, "github.com/caarlos0/env/v", "env removed")
+}
+
+func TestUpdater_UpdateAll_MultiBranch(t *testing.T) {
+	upstream, downstream := fixtureRepos(t, "simple")
+	u, err := gomod.NewUpdater(downstream, "", "")
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	for _, b := range []string{"master", "main"} {
+		err = u.UpdateAll(ctx, b)
+		require.NoError(t, err)
+	}
+
+	branches := iterateBranches(t, upstream)
+	// We expect 4 new branches: logrus and pkg/errors for each base branch
+	assert.Len(t, branches, baseBranchCount+4)
 }
 
 func updateAllInFixture(t *testing.T, fixture string) *git.Repository {
@@ -101,11 +120,20 @@ func fixtureRepos(t *testing.T, fixture string) (upstream, downstream *git.Repos
 	require.NoError(t, err)
 	err = wt.AddGlob(".")
 	require.NoError(t, err)
-	_, err = wt.Commit("initial", &git.CommitOptions{
+	commit, err := wt.Commit("initial", &git.CommitOptions{
 		Author: &object.Signature{
 			Name:  "test",
 			Email: "test@test.com",
 		},
+	})
+	require.NoError(t, err)
+
+	otherBranch := plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), commit)
+	err = upstream.Storer.SetReference(otherBranch)
+	require.NoError(t, err)
+
+	err = upstream.CreateBranch(&config.Branch{
+		Name: "main",
 	})
 	require.NoError(t, err)
 
