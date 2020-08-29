@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/gomod"
@@ -50,7 +49,7 @@ func (t *SharedRepo) ReadFile(branch, path string) ([]byte, error) {
 	defer t.mu.Unlock()
 
 	// Verify the base branch exists
-	branchRef, err := t.ensureBranchExists(branch)
+	branchRef, err := ensureBranchExists(t.repo, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -86,59 +85,28 @@ func readWorktreeFile(wt *git.Worktree, path string) ([]byte, error) {
 
 // NewSandbox creates a new sandbox branch for performing an update.
 func (t *SharedRepo) NewSandbox(baseBranch, targetBranch string) (gomod.Sandbox, error) {
-	t.mu.Lock()
-	// passed to the returned SharedSandbox, which will Unlock() in Close()
-
-	logrus.WithFields(logrus.Fields{
-		"base":   baseBranch,
-		"target": targetBranch,
-	}).Debug("creating sandbox")
-	baseBranchRef, err := t.ensureBranchExists(baseBranch)
-	if err != nil {
-		return nil, err
-	}
-
-	targetBranchRefName := plumbing.NewBranchReferenceName(targetBranch)
-	err = t.wt.Checkout(&git.CheckoutOptions{
-		Branch: targetBranchRefName,
-		Hash:   baseBranchRef.Hash(),
-		Create: true,
-		Force:  true,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("checking out target branch: %w", err)
-	}
-	err = t.repo.CreateBranch(&config.Branch{
-		Name:   targetBranch,
-		Merge:  targetBranchRefName,
-		Remote: "origin",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("creating target branch: %w", err)
-	}
-	return &SharedSandbox{
-		lock: &t.mu,
-		wt:   t.wt,
-	}, nil
+	return NewSharedSandbox(&t.mu, t.repo, baseBranch, targetBranch)
 }
 
-func (t *SharedRepo) ensureBranchExists(branch string) (*plumbing.Reference, error) {
+
+
+func ensureBranchExists(repo *git.Repository, branch string) (*plumbing.Reference, error) {
 	refName := plumbing.NewBranchReferenceName(branch)
-	ref, err := t.repo.Reference(refName, true)
+	ref, err := repo.Reference(refName, true)
 	if err != nil {
 		if err != plumbing.ErrReferenceNotFound {
 			return nil, fmt.Errorf("querying branch ref: %w", err)
 		}
 
 		// If the ref doesn't exist, what about on the default remote?
-		originRef, err := t.repo.Reference(plumbing.NewRemoteReferenceName(RemoteName, branch), true)
+		remoteRef, err := repo.Reference(plumbing.NewRemoteReferenceName(RemoteName, branch), true)
 		if err != nil {
 			return nil, fmt.Errorf("querying remote remote branch ref: %w", err)
 		}
 
 		// Found on remote, store as base branch for later consistency:
-		ref = plumbing.NewHashReference(refName, originRef.Hash())
-		if err := t.repo.Storer.SetReference(ref); err != nil {
+		ref = plumbing.NewHashReference(refName, remoteRef.Hash())
+		if err := repo.Storer.SetReference(ref); err != nil {
 			return nil, fmt.Errorf("storing reference: %w", err)
 		}
 	}

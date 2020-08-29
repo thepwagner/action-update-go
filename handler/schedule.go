@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/thepwagner/action-update-go/cmd"
-	gitrepo "github.com/thepwagner/action-update-go/git"
+	gitrepo "github.com/thepwagner/action-update-go/gitrepo"
 	"github.com/thepwagner/action-update-go/gomod"
 )
 

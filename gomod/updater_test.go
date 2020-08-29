@@ -17,7 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	gitrepo "github.com/thepwagner/action-update-go/git"
+	gitrepo "github.com/thepwagner/action-update-go/gitrepo"
 	"github.com/thepwagner/action-update-go/gomod"
 )
 
