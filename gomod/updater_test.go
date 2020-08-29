@@ -67,7 +67,7 @@ func TestUpdater_UpdateAll_Vendor(t *testing.T) {
 
 func TestUpdater_UpdateAll_Major(t *testing.T) {
 	// Update and interrogate the logrus branch:
-	r := updateAllInFixture(t, "major")
+	r := updateAllInFixture(t, "Major")
 	branches, wt := checkoutBranchWithPrefix(t, r, "action-update-go/master/github.com/caarlos0/env/")
 
 	// We expect 1 new branches: env

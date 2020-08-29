@@ -136,28 +136,27 @@ func (u *Updater) UpdateAll(ctx context.Context, baseBranch string) error {
 	modload.Init()
 	for _, req := range goMod.Require {
 		pkg := req.Mod.Path
-		log := logrus.WithField("pkg", pkg)
+		log := logrus.WithField("Path", pkg)
 
 		if modfetch.IsPseudoVersion(req.Mod.Version) {
 			log.WithField("version", req.Mod.Version).Debug("skipping psuedoversion module")
 			continue
 		}
 
-		update := moduleUpdate{
-			baseBranch: baseBranch,
-			baseHash:   baseRef.Hash(),
-			pkg:        pkg,
-			previous:   req.Mod.Version,
+		update := ModuleUpdate{
+			Base:     baseRef,
+			Path:     pkg,
+			Previous: req.Mod.Version,
 		}
 
 		if u.MajorVersion {
 			latest, err := u.checkForMajorUpdate(req)
 			if err != nil {
-				log.WithError(err).Warn("error checking for major update")
+				log.WithError(err).Warn("error checking for Major update")
 				continue
 			}
 			if latest != "" {
-				update.next = latest
+				update.Next = latest
 				if err := u.update(ctx, update); err != nil {
 					return fmt.Errorf("upgrading %q: %w", pkg, err)
 				}
@@ -173,7 +172,7 @@ func (u *Updater) UpdateAll(ctx context.Context, baseBranch string) error {
 		if latest == "" {
 			continue
 		}
-		update.next = latest
+		update.Next = latest
 		if err := u.update(ctx, update); err != nil {
 			return fmt.Errorf("upgrading %q: %w", pkg, err)
 		}
@@ -202,7 +201,7 @@ func (u *Updater) parseGoMod() (*modfile.File, error) {
 func (u *Updater) checkForUpdate(req *modfile.Require) (latestVersion string, err error) {
 	pkg := req.Mod.Path
 	version := req.Mod.Version
-	log := logrus.WithField("pkg", pkg)
+	log := logrus.WithField("Path", pkg)
 	log.Debug("querying latest version")
 
 	latest, err := modload.Query(pkg, "latest", nil)
@@ -235,8 +234,8 @@ func (u *Updater) checkForMajorUpdate(req *modfile.Require) (latestVersion strin
 	currentMajorVersion, _ := strconv.ParseInt(m[1], 10, 32)
 
 	version := req.Mod.Version
-	log := logrus.WithField("pkg", pkg)
-	log.Debug("querying latest major version")
+	log := logrus.WithField("Path", pkg)
+	log.Debug("querying latest Major version")
 
 	latest, err := modload.Query(pkgMajorVersion(pkg, currentMajorVersion+1), "latest", nil)
 	if err != nil {
@@ -249,7 +248,7 @@ func (u *Updater) checkForMajorUpdate(req *modfile.Require) (latestVersion strin
 	log.WithFields(logrus.Fields{
 		"latest_version":  latest.Version,
 		"current_version": version,
-	}).Info("major upgrade available")
+	}).Info("Major upgrade available")
 	return latest.Version, nil
 }
 
@@ -257,7 +256,7 @@ func pkgMajorVersion(pkg string, version int64) string {
 	return fmt.Sprintf("%s/v%d", pkg[:strings.LastIndex(pkg, "/")], version)
 }
 
-func (u *Updater) update(ctx context.Context, update moduleUpdate) error {
+func (u *Updater) update(ctx context.Context, update ModuleUpdate) error {
 	if err := u.createUpdateBranch(update); err != nil {
 		return err
 	}
@@ -267,7 +266,7 @@ func (u *Updater) update(ctx context.Context, update moduleUpdate) error {
 	}
 
 	// TODO: dependency inject this
-	commitMessage := fmt.Sprintf("update %s to %s", update.pkg, update.next)
+	commitMessage := fmt.Sprintf("update %s to %s", update.Path, update.Next)
 	if err := u.commit(commitMessage); err != nil {
 		return err
 	}
@@ -282,17 +281,17 @@ func (u *Updater) update(ctx context.Context, update moduleUpdate) error {
 	return nil
 }
 
-func (u *Updater) createUpdateBranch(update moduleUpdate) error {
+func (u *Updater) createUpdateBranch(update ModuleUpdate) error {
 	log := logrus.WithFields(logrus.Fields{
-		"pkg":     update.pkg,
-		"version": update.next,
+		"Path":    update.Path,
+		"version": update.Next,
 	})
-	branchName := update.branchName()
+	branchName := update.BranchName()
 	log.WithField("branch", branchName).Debug("checking out target branch")
 	branchRef := plumbing.NewBranchReferenceName(branchName)
 	err := u.wt.Checkout(&git.CheckoutOptions{
 		Branch: branchRef,
-		Hash:   update.baseHash,
+		Hash:   update.Base.Hash(),
 		Create: true,
 		Force:  true,
 	})
@@ -310,12 +309,12 @@ func (u *Updater) createUpdateBranch(update moduleUpdate) error {
 	return nil
 }
 
-func (u *Updater) updateFiles(ctx context.Context, update moduleUpdate) error {
+func (u *Updater) updateFiles(ctx context.Context, update ModuleUpdate) error {
 	if err := u.updateGoMod(update); err != nil {
 		return err
 	}
 
-	if update.major() {
+	if update.Major() {
 		if err := u.updateSourceCode(update); err != nil {
 			return err
 		}
@@ -333,24 +332,24 @@ func (u *Updater) updateFiles(ctx context.Context, update moduleUpdate) error {
 	return nil
 }
 
-func (u *Updater) updateGoMod(update moduleUpdate) error {
+func (u *Updater) updateGoMod(update ModuleUpdate) error {
 	goMod, err := u.parseGoMod()
 	if err != nil {
 		return err
 	}
 
-	if update.major() {
+	if update.Major() {
 		// Replace foo.bar/v2 with foo.bar/v3:
-		if err := goMod.DropRequire(update.pkg); err != nil {
+		if err := goMod.DropRequire(update.Path); err != nil {
 			return fmt.Errorf("dropping requirement: %w", err)
 		}
-		pkgNext := path.Join(path.Dir(update.pkg), semver.Major(update.next))
-		if err := goMod.AddRequire(pkgNext, update.next); err != nil {
+		pkgNext := path.Join(path.Dir(update.Path), semver.Major(update.Next))
+		if err := goMod.AddRequire(pkgNext, update.Next); err != nil {
 			return fmt.Errorf("dropping requirement: %w", err)
 		}
 	} else {
 		// Replace the version:
-		if err := goMod.AddRequire(update.pkg, update.next); err != nil {
+		if err := goMod.AddRequire(update.Path, update.Next); err != nil {
 			return fmt.Errorf("adding requirement: %w", err)
 		}
 	}
@@ -378,14 +377,14 @@ func (u *Updater) updateGoMod(update moduleUpdate) error {
 	return nil
 }
 
-func (u *Updater) updateSourceCode(update moduleUpdate) error {
+func (u *Updater) updateSourceCode(update ModuleUpdate) error {
 	// replace foo.bar/v1 with foo.bar/v2 in imports:
-	pattern, err := regexp.Compile(strings.ReplaceAll(update.pkg, ".", "\\."))
+	pattern, err := regexp.Compile(strings.ReplaceAll(update.Path, ".", "\\."))
 	if err != nil {
 		return err
 	}
 
-	pkgNext := path.Join(path.Dir(update.pkg), semver.Major(update.next))
+	pkgNext := path.Join(path.Dir(update.Path), semver.Major(update.Next))
 	return filepath.Walk(u.wt.Filesystem.Root(), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			logrus.WithError(err).WithField("path", path).Warn("error accessing path")
@@ -540,46 +539,23 @@ func (u *Updater) push(ctx context.Context) error {
 	return nil
 }
 
-type moduleUpdate struct {
-	baseBranch string
-	baseHash   plumbing.Hash
-
-	pkg      string
-	previous string
-	next     string
-}
-
-func (u moduleUpdate) major() bool {
-	return semver.Major(u.previous) != semver.Major(u.next)
-}
-
-func (u moduleUpdate) branchName() string {
-	var branchPkg string
-	if u.major() {
-		branchPkg = path.Dir(u.pkg)
-	} else {
-		branchPkg = u.pkg
-	}
-	return fmt.Sprintf("action-update-go/%s/%s/%s", u.baseBranch, branchPkg, u.next)
-}
-
-func (u *Updater) createPR(ctx context.Context, update moduleUpdate) error {
+func (u *Updater) createPR(ctx context.Context, update ModuleUpdate) error {
 	if u.github == nil {
 		return nil
 	}
 
 	// TODO: dependency inject this
-	title := fmt.Sprintf("Update %s from %s to %s", update.pkg, update.previous, update.next)
+	title := fmt.Sprintf("Update %s from %s to %s", update.Path, update.Previous, update.Next)
 	var body strings.Builder
 	_, _ = fmt.Fprintln(&body, "you're welcome")
 	_, _ = fmt.Fprintln(&body, "")
 	_, _ = fmt.Fprintln(&body, "TODO: release notes or something?")
 	_, _ = fmt.Fprintln(&body, "")
 	_, _ = fmt.Fprintln(&body, "```json")
-	major := semver.Major(update.previous) != semver.Major(update.next)
-	minor := !major && semver.MajorMinor(update.previous) != semver.MajorMinor(update.next)
+	major := semver.Major(update.Previous) != semver.Major(update.Next)
+	minor := !major && semver.MajorMinor(update.Previous) != semver.MajorMinor(update.Next)
 	details := struct {
-		Major bool `json:"major"`
+		Major bool `json:"Major"`
 		Minor bool `json:"minor"`
 		Patch bool `json:"patch"`
 	}{
@@ -598,8 +574,8 @@ func (u *Updater) createPR(ctx context.Context, update moduleUpdate) error {
 	res, _, err := u.github.PullRequests.Create(ctx, u.owner, u.repoName, &github.NewPullRequest{
 		Title: &title,
 		Body:  github.String(body.String()),
-		Base:  &update.baseBranch,
-		Head:  github.String(update.branchName()),
+		Base:  github.String(update.Base.Name().Short()),
+		Head:  github.String(update.BranchName()),
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "pull request already exists") {
