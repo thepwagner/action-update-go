@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	gitrepo "github.com/thepwagner/action-update-go/git"
 	"github.com/thepwagner/action-update-go/gomod"
 )
 
@@ -81,7 +82,9 @@ func TestUpdater_UpdateAll_Major(t *testing.T) {
 
 func TestUpdater_UpdateAll_MultiBranch(t *testing.T) {
 	upstream, downstream := fixtureRepos(t, "simple")
-	u, err := gomod.NewUpdater(downstream, "", "")
+	r, err := gitrepo.NewSharedRepo(downstream)
+	require.NoError(t, err)
+	u, err := gomod.NewUpdater(r, "", "")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -97,7 +100,9 @@ func TestUpdater_UpdateAll_MultiBranch(t *testing.T) {
 
 func updateAllInFixture(t *testing.T, fixture string) *git.Repository {
 	upstream, downstream := fixtureRepos(t, fixture)
-	u, err := gomod.NewUpdater(downstream, "", "")
+	r, err := gitrepo.NewSharedRepo(downstream)
+	require.NoError(t, err)
+	u, err := gomod.NewUpdater(r, "", "")
 	require.NoError(t, err)
 	err = u.UpdateAll(context.Background(), "master")
 	require.NoError(t, err)

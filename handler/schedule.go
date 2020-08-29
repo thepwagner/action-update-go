@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/thepwagner/action-update-go/cmd"
+	gitrepo "github.com/thepwagner/action-update-go/git"
 	"github.com/thepwagner/action-update-go/gomod"
 )
 
@@ -13,7 +14,13 @@ func Schedule(ctx context.Context, env cmd.Environment, _ interface{}) error {
 	if err != nil {
 		return err
 	}
-	updater, err := gomod.NewUpdater(repo, env.GitHubRepository, env.GitHubToken)
+
+	sharedRepo, err := gitrepo.NewSharedRepo(repo)
+	if err != nil {
+		return err
+	}
+
+	updater, err := gomod.NewUpdater(sharedRepo, env.GitHubRepository, env.GitHubToken)
 	if err != nil {
 		return err
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/stretchr/testify/assert"
 	"github.com/thepwagner/action-update-go/gomod"
 )
@@ -26,14 +25,4 @@ func TestModuleUpdate_Major(t *testing.T) {
 			assert.Equal(t, c.expected, u.Major())
 		})
 	}
-}
-
-func TestModuleUpdate_BranchName(t *testing.T) {
-	u := gomod.ModuleUpdate{
-		Path:     "github.com/stretchr/testify",
-		Previous: "v1.6.0",
-		Next:     "v1.6.1",
-		Base:     plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), plumbing.ZeroHash),
-	}
-	assert.Equal(t, "action-update-go/main/github.com/stretchr/testify/v1.6.1", u.BranchName())
 }
