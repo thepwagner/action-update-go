@@ -1,22 +1,28 @@
 package gomod
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"os/exec"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfetch"
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfile"
-	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modload"
+	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modinfo"
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 	"github.com/sirupsen/logrus"
 )
 
 type UpdateChecker struct {
 	MajorVersions bool
+	RootDir       string
 }
 
-func (c *UpdateChecker) CheckForModuleUpdates(req *modfile.Require) (*ModuleUpdate, error) {
+func (c *UpdateChecker) CheckForModuleUpdates(ctx context.Context, req *modfile.Require) (*ModuleUpdate, error) {
 	path := req.Mod.Path
 	log := logrus.WithField("path", path)
 
@@ -26,7 +32,7 @@ func (c *UpdateChecker) CheckForModuleUpdates(req *modfile.Require) (*ModuleUpda
 	}
 
 	if c.MajorVersions {
-		latest, err := checkForMajorUpdate(req)
+		latest, err := c.checkForMajorUpdate(ctx, req)
 		if err != nil {
 			return nil, fmt.Errorf("checking for major update: %w", err)
 		}
@@ -35,7 +41,7 @@ func (c *UpdateChecker) CheckForModuleUpdates(req *modfile.Require) (*ModuleUpda
 		}
 	}
 
-	latest, err := checkForUpdate(req)
+	latest, err := c.checkForUpdate(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("checking for update: %w", err)
 	}
@@ -44,7 +50,7 @@ func (c *UpdateChecker) CheckForModuleUpdates(req *modfile.Require) (*ModuleUpda
 
 var pathMajorVersionRE = regexp.MustCompile("/v([0-9]+)$")
 
-func checkForMajorUpdate(req *modfile.Require) (*ModuleUpdate, error) {
+func (c *UpdateChecker) checkForMajorUpdate(ctx context.Context, req *modfile.Require) (*ModuleUpdate, error) {
 	// Does this look like a versioned path?
 	path := req.Mod.Path
 	m := pathMajorVersionRE.FindStringSubmatch(path)
@@ -53,19 +59,24 @@ func checkForMajorUpdate(req *modfile.Require) (*ModuleUpdate, error) {
 	}
 	currentMajorVersion, _ := strconv.ParseInt(m[1], 10, 32)
 
-	version := req.Mod.Version
 	log := logrus.WithField("path", path)
 	log.Debug("querying latest major version")
 
-	latest, err := modload.Query(pathMajorVersion(path, currentMajorVersion+1), "latest", nil)
+	nfo, err := c.queryModuleVersions(ctx, pathMajorVersion(path, currentMajorVersion+1))
 	if err != nil {
-		return nil, fmt.Errorf("querying for latest version: %w", err)
+		if strings.Contains(err.Error(), "exit status 1") {
+			// Assume we queried for a major version that doesn't exist
+			return nil, nil
+		}
+		return nil, err
 	}
+
+	version := req.Mod.Version
 	log = log.WithFields(logrus.Fields{
-		"latest_version":  latest.Version,
+		"latest_version":  nfo.Version,
 		"current_version": version,
 	})
-	if modfetch.IsPseudoVersion(latest.Version) {
+	if modfetch.IsPseudoVersion(nfo.Version) {
 		log.Debug("skipping major update to pseudoversion")
 		return nil, nil
 	}
@@ -74,27 +85,27 @@ func checkForMajorUpdate(req *modfile.Require) (*ModuleUpdate, error) {
 	return &ModuleUpdate{
 		Path:     path,
 		Previous: version,
-		Next:     latest.Version,
+		Next:     nfo.Version,
 	}, nil
 }
 
-func checkForUpdate(req *modfile.Require) (*ModuleUpdate, error) {
+func (c *UpdateChecker) checkForUpdate(ctx context.Context, req *modfile.Require) (*ModuleUpdate, error) {
 	path := req.Mod.Path
 	log := logrus.WithField("path", path)
 	log.Debug("querying latest version")
 
-	latest, err := modload.Query(path, "latest", nil)
+	nfo, err := c.queryModuleVersions(ctx, path)
 	if err != nil {
-		return nil, fmt.Errorf("querying for latest version: %w", err)
+		return nil, err
 	}
 
 	// Does this update progress the semver?
 	version := req.Mod.Version
 	log = log.WithFields(logrus.Fields{
-		"latest_version":  latest.Version,
+		"latest_version":  nfo.Version,
 		"current_version": version,
 	})
-	if upgrade := semver.Compare(version, latest.Version) < 0; !upgrade {
+	if upgrade := semver.Compare(version, nfo.Version) < 0; !upgrade {
 		log.Debug("no update available")
 		return nil, nil
 	}
@@ -102,6 +113,24 @@ func checkForUpdate(req *modfile.Require) (*ModuleUpdate, error) {
 	return &ModuleUpdate{
 		Path:     path,
 		Previous: version,
-		Next:     latest.Version,
+		Next:     nfo.Version,
 	}, nil
+}
+
+func (c *UpdateChecker) queryModuleVersions(ctx context.Context, nextVersionPath string) (*modinfo.ModulePublic, error) {
+	var buf bytes.Buffer
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-versions", "-json", nextVersionPath)
+	cmd.Stdout = &buf
+	cmd.Dir = c.RootDir
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("querying version: %w", err)
+	}
+	var nfo modinfo.ModulePublic
+	if err := json.NewDecoder(&buf).Decode(&nfo); err != nil {
+		return nil, fmt.Errorf("decoding version query: %w", err)
+	}
+	if nfo.Version == "" {
+		return nil, fmt.Errorf("invalid version response")
+	}
+	return &nfo, nil
 }

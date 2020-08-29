@@ -72,7 +72,7 @@ func (u *Updater) UpdateAll(ctx context.Context, branch string) error {
 	// Iterate dependencies:
 	modload.Init()
 	for _, req := range goMod.Require {
-		update, err := u.checker.CheckForModuleUpdates(req)
+		update, err := u.checker.CheckForModuleUpdates(ctx, req)
 		if err != nil {
 			log.WithError(err).Warn("error checking for updates")
 			continue
