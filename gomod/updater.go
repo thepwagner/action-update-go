@@ -3,10 +3,11 @@ package gomod
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfile"
-	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modload"
 	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
@@ -61,8 +62,13 @@ func NewUpdater(repo Repo, ghRepo, token string) (*Updater, error) {
 }
 
 func (u *Updater) UpdateAll(ctx context.Context, branch string) error {
-	// Parse go.mod from the branch:
-	goMod, err := u.parseGoMod(branch)
+	// Switch to base branch:
+	if err := u.repo.SetBranch(branch); err != nil {
+		return fmt.Errorf("switch to base branch: %w", err)
+	}
+
+	// Parse go.mod, to list updatable dependencies:
+	goMod, err := u.parseGoMod()
 	if err != nil {
 		return fmt.Errorf("parsing go.mod: %w", err)
 	}
@@ -70,7 +76,6 @@ func (u *Updater) UpdateAll(ctx context.Context, branch string) error {
 	log.WithField("deps", len(goMod.Require)).Info("parsed go.mod, checking for updates")
 
 	// Iterate dependencies:
-	modload.Init()
 	for _, req := range goMod.Require {
 		update, err := u.checker.CheckForModuleUpdates(ctx, req)
 		if err != nil {
@@ -88,8 +93,8 @@ func (u *Updater) UpdateAll(ctx context.Context, branch string) error {
 	return nil
 }
 
-func (u *Updater) parseGoMod(branch string) (*modfile.File, error) {
-	b, err := u.repo.ReadFile(branch, GoModFn)
+func (u *Updater) parseGoMod() (*modfile.File, error) {
+	b, err := ioutil.ReadFile(filepath.Join(u.repo.Root(), GoModFn))
 	if err != nil {
 		return nil, fmt.Errorf("opening go.mod: %w", err)
 	}

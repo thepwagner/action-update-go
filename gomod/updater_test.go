@@ -82,7 +82,7 @@ func TestUpdater_UpdateAll_Major(t *testing.T) {
 
 func TestUpdater_UpdateAll_MultiBranch(t *testing.T) {
 	upstream, downstream := fixtureRepos(t, "simple")
-	r, err := gitrepo.NewSharedRepo(downstream)
+	r, err := gitrepo.NewSingleTreeRepo(downstream)
 	require.NoError(t, err)
 	u, err := gomod.NewUpdater(r, "", "")
 	require.NoError(t, err)
@@ -100,7 +100,7 @@ func TestUpdater_UpdateAll_MultiBranch(t *testing.T) {
 
 func updateAllInFixture(t *testing.T, fixture string) *git.Repository {
 	upstream, downstream := fixtureRepos(t, fixture)
-	r, err := gitrepo.NewSharedRepo(downstream)
+	r, err := gitrepo.NewSingleTreeRepo(downstream)
 	require.NoError(t, err)
 	u, err := gomod.NewUpdater(r, "", "")
 	require.NoError(t, err)

@@ -70,7 +70,7 @@ func TestSharedSandbox_Walk(t *testing.T) {
 }
 
 func initSharedSandbox(t *testing.T) gomod.Sandbox {
-	sharedRepo := initSharedRepo(t, plumbing.NewBranchReferenceName(branchName))
+	sharedRepo := initSingleTree(t, plumbing.NewBranchReferenceName(branchName))
 	sbx, err := sharedRepo.NewSandbox(branchName, "my-awesome-branch")
 	require.NoError(t, err)
 	return sbx

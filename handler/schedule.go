@@ -15,7 +15,7 @@ func Schedule(ctx context.Context, env cmd.Environment, _ interface{}) error {
 		return err
 	}
 
-	sharedRepo, err := gitrepo.NewSharedRepo(repo)
+	sharedRepo, err := gitrepo.NewSingleTreeRepo(repo)
 	if err != nil {
 		return err
 	}

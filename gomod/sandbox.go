@@ -20,6 +20,10 @@ import (
 type Repo interface {
 	ReadFile(branch, path string) ([]byte, error)
 	NewSandbox(baseBranch, targetBranch string) (Sandbox, error)
+
+	Branch() string
+	SetBranch(branch string) error
+	Root() string
 }
 
 // Sandbox is a filesystem containing full source code for an updatable go module

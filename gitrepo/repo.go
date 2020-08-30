@@ -3,7 +3,6 @@ package gitrepo
 import (
 	"fmt"
 	"io/ioutil"
-	"sync"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -13,18 +12,17 @@ import (
 
 const RemoteName = "origin"
 
-// SharedRepo is a Repo that synchronizes access to a single git working tree.
-type SharedRepo struct {
-	repo *git.Repository
-	wt   *git.Worktree
-	base *plumbing.Reference
-	mu   sync.Mutex
+// SingleTreeRepo is a Repo that synchronizes access to a single git working tree.
+type SingleTreeRepo struct {
+	repo   *git.Repository
+	wt     *git.Worktree
+	branch string
 }
 
-var _ gomod.Repo = (*SharedRepo)(nil)
+var _ gomod.Repo = (*SingleTreeRepo)(nil)
 
-// NewSharedRepo creates SharedRepo.
-func NewSharedRepo(repo *git.Repository) (*SharedRepo, error) {
+// NewSingleTreeRepo creates SingleTreeRepo.
+func NewSingleTreeRepo(repo *git.Repository) (*SingleTreeRepo, error) {
 	wt, err := repo.Worktree()
 	if err != nil {
 		return nil, fmt.Errorf("getting work tree: %w", err)
@@ -37,16 +35,58 @@ func NewSharedRepo(repo *git.Repository) (*SharedRepo, error) {
 		return nil, fmt.Errorf("tree is dirty")
 	}
 
-	return &SharedRepo{
-		repo: repo,
-		wt:   wt,
+	var branch string
+	if head, err := repo.Head(); err == nil && head.Name().IsBranch() {
+		branch = head.Name().Short()
+	}
+
+	return &SingleTreeRepo{
+		repo:   repo,
+		wt:     wt,
+		branch: branch,
 	}, nil
 }
 
+func (t *SingleTreeRepo) Branch() string {
+	return t.branch
+}
+
+func (t *SingleTreeRepo) SetBranch(branch string) error {
+	log := logrus.WithField("branch", branch)
+	log.Debug("switching branch")
+	refName := plumbing.NewBranchReferenceName(branch)
+	ref, err := t.repo.Reference(refName, true)
+	if err != nil {
+		if err != plumbing.ErrReferenceNotFound {
+			return fmt.Errorf("querying branch ref: %w", err)
+		}
+		log.Debug("not found locally, checking remote")
+
+		// If the ref doesn't exist, what about on the default remote?
+		remoteRef, err := t.repo.Reference(plumbing.NewRemoteReferenceName(RemoteName, branch), true)
+		if err != nil {
+			return fmt.Errorf("querying remote branch ref: %w", err)
+		}
+
+		// Branch found on remote, store as local branch for later consistency:
+		ref = plumbing.NewHashReference(refName, remoteRef.Hash())
+		if err := t.repo.Storer.SetReference(ref); err != nil {
+			return fmt.Errorf("storing reference: %w", err)
+		}
+		log.Debug("branch switched from remote ref")
+	} else {
+		log.Debug("branch switched")
+	}
+	t.branch = ref.Name().Short()
+	return nil
+}
+
+func (t *SingleTreeRepo) Root() string {
+	return t.wt.Filesystem.Root()
+}
+
 // ReadFile switches branch then reads a file. Stays on the requested branch but don't count on this.
-func (t *SharedRepo) ReadFile(branch, path string) ([]byte, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+func (t *SingleTreeRepo) ReadFile(branch, path string) ([]byte, error) {
 
 	// Verify the base branch exists
 	branchRef, err := ensureBranchExists(t.repo, branch)
@@ -84,11 +124,10 @@ func readWorktreeFile(wt *git.Worktree, path string) ([]byte, error) {
 }
 
 // NewSandbox creates a new sandbox branch for performing an update.
-func (t *SharedRepo) NewSandbox(baseBranch, targetBranch string) (gomod.Sandbox, error) {
-	return NewSharedSandbox(&t.mu, t.repo, baseBranch, targetBranch)
+func (t *SingleTreeRepo) NewSandbox(baseBranch, targetBranch string) (gomod.Sandbox, error) {
+	//return NewSharedSandbox(&t.mu, t.repo, baseBranch, targetBranch)
+	return nil, nil
 }
-
-
 
 func ensureBranchExists(repo *git.Repository, branch string) (*plumbing.Reference, error) {
 	refName := plumbing.NewBranchReferenceName(branch)
