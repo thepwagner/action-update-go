@@ -15,8 +15,6 @@ var handlers = HandlersByEventName{
 }
 
 func main() {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	ctx := context.Background()
 	if err := Run(ctx, handlers); err != nil {
 		logrus.WithError(err).Fatal("failed")
