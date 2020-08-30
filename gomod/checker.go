@@ -130,11 +130,14 @@ func (c *UpdateChecker) checkForUpdate(ctx context.Context, req *modfile.Require
 
 func (c *UpdateChecker) queryModuleVersions(ctx context.Context, nextVersionPath string) (*modinfo.ModulePublic, error) {
 	var buf bytes.Buffer
-	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-versions", "-json", nextVersionPath)
+	var errBuf bytes.Buffer
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-mod=mod", "-versions", "-json", nextVersionPath)
 	cmd.Stdout = &buf
+	cmd.Stderr = &errBuf
 	cmd.Dir = c.RootDir
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("querying version: %w", err)
+		logrus.WithField("stderr", errBuf.String()).Warn("module versions query error")
+		return nil, fmt.Errorf("querying versions: %w", err)
 	}
 	var nfo modinfo.ModulePublic
 	if err := json.NewDecoder(&buf).Decode(&nfo); err != nil {

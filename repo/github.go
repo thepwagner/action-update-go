@@ -13,7 +13,7 @@ import (
 
 // GitHubRepo wraps GitRepo to create a GitHub PR for the pushed branch.
 type GitHubRepo struct {
-	repo *GitRepo
+	repo gomod.Repo
 
 	content  PullRequestContentFiller
 	github   *github.Client
@@ -25,7 +25,7 @@ var _ gomod.Repo = (*GitHubRepo)(nil)
 
 type PullRequestContentFiller func(gomod.Update) (title, body string, err error)
 
-func NewGitHubRepo(repoNameOwner, token string) (*GitHubRepo, error) {
+func NewGitHubRepo(repo gomod.Repo, repoNameOwner, token string) (*GitHubRepo, error) {
 	ghRepoSplit := strings.Split(repoNameOwner, "/")
 	if len(ghRepoSplit) != 2 {
 		return nil, fmt.Errorf("expected repo in OWNER/NAME format")
@@ -34,6 +34,7 @@ func NewGitHubRepo(repoNameOwner, token string) (*GitHubRepo, error) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(context.Background(), ts)
 	return &GitHubRepo{
+		repo:     repo,
 		owner:    ghRepoSplit[0],
 		repoName: ghRepoSplit[1],
 		github:   github.NewClient(tc),
