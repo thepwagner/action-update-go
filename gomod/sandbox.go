@@ -21,9 +21,14 @@ type Repo interface {
 	ReadFile(branch, path string) ([]byte, error)
 	NewSandbox(baseBranch, targetBranch string) (Sandbox, error)
 
-	Branch() string
-	SetBranch(branch string) error
+	// Root returns the working tree root.
 	Root() string
+	// Branch returns the current branch.
+	Branch() string
+	// SetBranch changes to an existing branch.
+	SetBranch(branch string) error
+	// NewBranch creates and changes to a new branch.
+	NewBranch(baseBranch, branch string) error
 }
 
 // Sandbox is a filesystem containing full source code for an updatable go module

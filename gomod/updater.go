@@ -20,7 +20,6 @@ const (
 
 type Updater struct {
 	repo       Repo
-	checker    *UpdateChecker
 	branchName UpdateBranchNamer
 
 	github   *github.Client
@@ -33,10 +32,7 @@ type Updater struct {
 
 func NewUpdater(repo Repo, ghRepo, token string) (*Updater, error) {
 	u := &Updater{
-		repo: repo,
-		checker: &UpdateChecker{
-			MajorVersions: true,
-		},
+		repo:       repo,
 		branchName: DefaultUpdateBranchNamer,
 		Tidy:       true,
 		Author: GitIdentity{
@@ -75,9 +71,14 @@ func (u *Updater) UpdateAll(ctx context.Context, branch string) error {
 	log := logrus.WithField("branch", branch)
 	log.WithField("deps", len(goMod.Require)).Info("parsed go.mod, checking for updates")
 
+	checker := &UpdateChecker{
+		MajorVersions: true,
+		RootDir:       u.repo.Root(),
+	}
+
 	// Iterate dependencies:
 	for _, req := range goMod.Require {
-		update, err := u.checker.CheckForModuleUpdates(ctx, req)
+		update, err := checker.CheckForModuleUpdates(ctx, req)
 		if err != nil {
 			log.WithError(err).Warn("error checking for updates")
 			continue
@@ -111,22 +112,25 @@ func pathMajorVersion(pkg string, version int64) string {
 
 func (u *Updater) update(ctx context.Context, baseBranch string, update ModuleUpdate) error {
 	targetBranch := u.branchName(baseBranch, update)
-	sbx, err := u.repo.NewSandbox(baseBranch, targetBranch)
-	if err != nil {
-		return fmt.Errorf("preparing update sandbox: %w", err)
+	if err := u.repo.NewBranch(baseBranch, targetBranch); err != nil {
+		return fmt.Errorf("switching to target branch: %w", err)
 	}
-	defer sbx.Close()
-
-	if err := UpdateSandbox(ctx, sbx, update, u.Tidy); err != nil {
-		return fmt.Errorf("applying update: %w", err)
-	}
-
-	// TODO: dependency inject this
-	commitMessage := fmt.Sprintf("update %s to %s", update.Path, update.Next)
-
-	if err := sbx.Commit(ctx, commitMessage, u.Author); err != nil {
-		return fmt.Errorf("pushing update: %w", err)
-	}
+	//sbx, err := u.repo.NewSandbox(baseBranch, targetBranch)
+	//if err != nil {
+	//	return fmt.Errorf("preparing update sandbox: %w", err)
+	//}
+	//defer sbx.Close()
+	//
+	//if err := UpdateSandbox(ctx, sbx, update, u.Tidy); err != nil {
+	//	return fmt.Errorf("applying update: %w", err)
+	//}
+	//
+	//// TODO: dependency inject this
+	//commitMessage := fmt.Sprintf("update %s to %s", update.Path, update.Next)
+	//
+	//if err := sbx.Commit(ctx, commitMessage, u.Author); err != nil {
+	//	return fmt.Errorf("pushing update: %w", err)
+	//}
 	// TODO: create PR
 	return nil
 }

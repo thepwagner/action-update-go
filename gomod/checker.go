@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// TODO: support replace directives
 type UpdateChecker struct {
 	MajorVersions bool
 	RootDir       string
@@ -99,13 +100,18 @@ func (c *UpdateChecker) checkForUpdate(ctx context.Context, req *modfile.Require
 		return nil, err
 	}
 
+	var latestVersion = nfo.Version
+	if versCount := len(nfo.Versions); versCount > 0 {
+		latestVersion = nfo.Versions[versCount-1]
+	}
+
 	// Does this update progress the semver?
 	version := req.Mod.Version
 	log = log.WithFields(logrus.Fields{
-		"latest_version":  nfo.Version,
+		"latest_version":  latestVersion,
 		"current_version": version,
 	})
-	if upgrade := semver.Compare(version, nfo.Version) < 0; !upgrade {
+	if upgrade := semver.Compare(version, latestVersion) < 0; !upgrade {
 		log.Debug("no update available")
 		return nil, nil
 	}
@@ -113,7 +119,7 @@ func (c *UpdateChecker) checkForUpdate(ctx context.Context, req *modfile.Require
 	return &ModuleUpdate{
 		Path:     path,
 		Previous: version,
-		Next:     nfo.Version,
+		Next:     latestVersion,
 	}, nil
 }
 

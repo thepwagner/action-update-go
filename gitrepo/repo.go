@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/gomod"
@@ -73,11 +74,61 @@ func (t *SingleTreeRepo) SetBranch(branch string) error {
 		if err := t.repo.Storer.SetReference(ref); err != nil {
 			return fmt.Errorf("storing reference: %w", err)
 		}
-		log.Debug("branch switched from remote ref")
-	} else {
-		log.Debug("branch switched")
 	}
-	t.branch = ref.Name().Short()
+
+	if err := t.setBranch(ref.Name()); err != nil {
+		return fmt.Errorf("switching to branch:%w", err)
+	}
+	return nil
+}
+
+func (t *SingleTreeRepo) setBranch(refName plumbing.ReferenceName) error {
+	err := t.wt.Checkout(&git.CheckoutOptions{Branch: refName})
+	if err != nil {
+		return fmt.Errorf("checking out branch: %w", err)
+	}
+	t.branch = refName.Short()
+	return nil
+}
+
+func (t *SingleTreeRepo) NewBranch(baseBranch, branch string) error {
+	log := logrus.WithFields(logrus.Fields{
+		"base":   baseBranch,
+		"branch": branch,
+	})
+	log.Debug("creating branch")
+
+	// Map string to a ref:
+	baseRef, err := t.repo.Reference(plumbing.NewBranchReferenceName(baseBranch), true)
+	if err != nil {
+		if err != plumbing.ErrReferenceNotFound {
+			return fmt.Errorf("querying branch ref: %w", err)
+		}
+		log.Debug("not found locally, checking remote")
+		remoteRef, err := t.repo.Reference(plumbing.NewRemoteReferenceName(RemoteName, branch), true)
+		if err != nil {
+			return fmt.Errorf("querying remote branch ref: %w", err)
+		}
+		baseRef = remoteRef
+	}
+
+	// Create branch from ref and configure with remote:
+	branchRefName := plumbing.NewBranchReferenceName(branch)
+	if err := t.repo.Storer.SetReference(plumbing.NewHashReference(branchRefName, baseRef.Hash())); err != nil {
+		return fmt.Errorf("creating branch reference: %w", err)
+	}
+	err = t.repo.CreateBranch(&config.Branch{
+		Name:   branch,
+		Merge:  branchRefName,
+		Remote: RemoteName,
+	})
+	if err != nil {
+		return fmt.Errorf("creating branch: %w", err)
+	}
+	log.WithField("base_ref", baseRef.Name()).Debug("branch created")
+	if err := t.setBranch(branchRefName); err != nil {
+		return fmt.Errorf("switching to new branch:%w", err)
+	}
 	return nil
 }
 
@@ -87,7 +138,6 @@ func (t *SingleTreeRepo) Root() string {
 
 // ReadFile switches branch then reads a file. Stays on the requested branch but don't count on this.
 func (t *SingleTreeRepo) ReadFile(branch, path string) ([]byte, error) {
-
 	// Verify the base branch exists
 	branchRef, err := ensureBranchExists(t.repo, branch)
 	if err != nil {
