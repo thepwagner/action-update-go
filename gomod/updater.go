@@ -16,7 +16,7 @@ type Updater struct {
 	Tidy bool
 }
 
-func (u *Updater) ApplyUpdate(ctx context.Context, root string, update Update, tidy bool) error {
+func (u *Updater) ApplyUpdate(ctx context.Context, root string, update Update) error {
 	if err := updateGoMod(root, update); err != nil {
 		return err
 	}

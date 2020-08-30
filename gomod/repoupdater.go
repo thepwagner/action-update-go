@@ -21,13 +21,13 @@ const (
 type RepoUpdater struct {
 	repo       Repo
 	branchName UpdateBranchNamer
+	updater    *Updater
 
 	github   *github.Client
 	owner    string
 	repoName string
 
-	Tidy   bool
-	Author GitIdentity
+	Tidy bool
 }
 
 func NewRepoUpdater(repo Repo, ghRepo, token string) (*RepoUpdater, error) {
@@ -35,10 +35,6 @@ func NewRepoUpdater(repo Repo, ghRepo, token string) (*RepoUpdater, error) {
 		repo:       repo,
 		branchName: DefaultUpdateBranchNamer,
 		Tidy:       true,
-		Author: GitIdentity{
-			Name:  "actions-update-go",
-			Email: "noreply@github.com",
-		},
 	}
 
 	if token != "" {
@@ -115,23 +111,15 @@ func (u *RepoUpdater) update(ctx context.Context, baseBranch string, update Upda
 	if err := u.repo.NewBranch(baseBranch, targetBranch); err != nil {
 		return fmt.Errorf("switching to target branch: %w", err)
 	}
-	//sbx, err := u.repo.NewSandbox(baseBranch, targetBranch)
-	//if err != nil {
-	//	return fmt.Errorf("preparing update sandbox: %w", err)
-	//}
-	//defer sbx.Close()
-	//
-	//if err := UpdateSandbox(ctx, sbx, update, u.Tidy); err != nil {
-	//	return fmt.Errorf("applying update: %w", err)
-	//}
-	//
-	//// TODO: dependency inject this
-	//commitMessage := fmt.Sprintf("update %s to %s", update.Path, update.Next)
-	//
-	//if err := sbx.Commit(ctx, commitMessage, u.Author); err != nil {
-	//	return fmt.Errorf("pushing update: %w", err)
-	//}
-	// TODO: create PR
+
+	if err := u.updater.ApplyUpdate(ctx, u.repo.Root(), update); err != nil {
+		return fmt.Errorf("applying update: %w", err)
+	}
+
+	if err := u.repo.Push(ctx, update); err != nil {
+		return fmt.Errorf("pushing update: %w", err)
+	}
+	
 	return nil
 }
 

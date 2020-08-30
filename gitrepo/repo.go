@@ -1,23 +1,32 @@
 package gitrepo
 
 import (
+	"context"
 	"fmt"
-	"io/ioutil"
+	"os/exec"
+	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/gomod"
 )
 
 const RemoteName = "origin"
 
+type GitIdentity struct {
+	Name  string
+	Email string
+}
+
 // SingleTreeRepo is a Repo that synchronizes access to a single git working tree.
 type SingleTreeRepo struct {
 	repo   *git.Repository
 	wt     *git.Worktree
 	branch string
+	author GitIdentity
 }
 
 var _ gomod.Repo = (*SingleTreeRepo)(nil)
@@ -45,6 +54,10 @@ func NewSingleTreeRepo(repo *git.Repository) (*SingleTreeRepo, error) {
 		repo:   repo,
 		wt:     wt,
 		branch: branch,
+		author: GitIdentity{
+			Name:  "actions-update-go",
+			Email: "noreply@github.com",
+		},
 	}, nil
 }
 
@@ -136,47 +149,69 @@ func (t *SingleTreeRepo) Root() string {
 	return t.wt.Filesystem.Root()
 }
 
-// ReadFile switches branch then reads a file. Stays on the requested branch but don't count on this.
-func (t *SingleTreeRepo) ReadFile(branch, path string) ([]byte, error) {
-	// Verify the base branch exists
-	branchRef, err := ensureBranchExists(t.repo, branch)
-	if err != nil {
-		return nil, err
+func (t *SingleTreeRepo) Push(ctx context.Context, update gomod.Update) error {
+	// TODO: dependency inject this?
+	commitMessage := fmt.Sprintf("update %s to %s", update.Path, update.Next)
+	if err := t.commit(commitMessage); err != nil {
+		return err
 	}
-
-	// Switch worktree to branch:
-	if err := t.wt.Checkout(&git.CheckoutOptions{
-		Hash:  branchRef.Hash(),
-		Force: true,
-	}); err != nil {
-		return nil, fmt.Errorf("switching to branch to read file: %w", err)
+	if err := t.push(ctx); err != nil {
+		return err
 	}
-	logrus.WithFields(logrus.Fields{
-		"branch": branch,
-		"commit": branchRef.Hash(),
-	}).Debug("switched shared work tree")
-
-	// Read file from worktree:
-	return readWorktreeFile(t.wt, path)
+	return nil
 }
 
-func readWorktreeFile(wt *git.Worktree, path string) ([]byte, error) {
-	f, err := wt.Filesystem.Open(path)
-	if err != nil {
-		return nil, err
+func (t *SingleTreeRepo) commit(message string) error {
+	when := time.Now()
+	if err := worktreeAddAll(t.wt); err != nil {
+		return err
 	}
-	defer f.Close()
-	b, err := ioutil.ReadAll(f)
+
+	commit, err := t.wt.Commit(message, &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  t.author.Name,
+			Email: t.author.Email,
+			When:  when,
+		},
+		Committer: &object.Signature{
+			Name:  t.author.Name,
+			Email: t.author.Email,
+			When:  when,
+		},
+	})
 	if err != nil {
-		return nil, fmt.Errorf("reading from work tree %q: %w", path, err)
+		return fmt.Errorf("committing branch: %w", err)
 	}
-	return b, nil
+	logrus.WithField("commit", commit.String()).Info("committed update")
+	return nil
 }
 
-// NewSandbox creates a new sandbox branch for performing an update.
-func (t *SingleTreeRepo) NewSandbox(baseBranch, targetBranch string) (gomod.Sandbox, error) {
-	//return NewSharedSandbox(&t.mu, t.repo, baseBranch, targetBranch)
-	return nil, nil
+func worktreeAddAll(wt *git.Worktree) error {
+	// wt.AddGlob() is attractive, but does not respect .gitignore
+	// .Status() respects .gitignore so add file by file:
+	status, err := wt.Status()
+	if err != nil {
+		return fmt.Errorf("checking status for add: %w", err)
+	}
+	for fn := range status {
+		if _, err := wt.Add(fn); err != nil {
+			return fmt.Errorf("adding file %q: %w", fn, err)
+		}
+	}
+
+	logrus.WithField("files", len(status)).Debug("added files to index")
+	return nil
+}
+
+func (t *SingleTreeRepo) push(ctx context.Context) error {
+	// go-git supports Push, but not the [http "https://github.com/"] .gitconfig directive that actions/checkout uses for auth
+	// we could extract from u.repo.Config().Raw, but who are we trying to impress?
+	cmd := exec.CommandContext(ctx, "git", "push", "-f")
+	cmd.Dir = t.Root()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("pushing: %w", err)
+	}
+	return nil
 }
 
 func ensureBranchExists(repo *git.Repository, branch string) (*plumbing.Reference, error) {
