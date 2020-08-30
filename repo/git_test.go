@@ -1,6 +1,7 @@
 package repo_test
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"path/filepath"
@@ -11,12 +12,14 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/thepwagner/action-update-go/gomod"
 	"github.com/thepwagner/action-update-go/repo"
 )
 
 const (
-	branchName = "main"
-	fileName   = "README.md"
+	branchName   = "main"
+	fileName     = "README.md"
+	updateBranch = "my-awesome-branch"
 )
 
 var fileData = []byte{1, 2, 3, 4}
@@ -47,7 +50,7 @@ func TestGitRepo_Branch(t *testing.T) {
 	assert.Equal(t, branchName, gr.Branch())
 }
 
-func TestGitRepo_BranchNotFound(t *testing.T) {
+func TestGitRepo_Branch_NotFound(t *testing.T) {
 	gr := initGitRepo(t, "")
 	assert.Equal(t, "", gr.Branch())
 }
@@ -59,17 +62,109 @@ func TestGitRepo_SetBranch(t *testing.T) {
 	assert.Equal(t, branchName, gr.Branch())
 }
 
-func TestGitRepo_SetBranchFromRemote(t *testing.T) {
+func TestGitRepo_SetBranch_FromRemote(t *testing.T) {
 	gr := initGitRepo(t, plumbing.NewRemoteReferenceName(repo.RemoteName, branchName))
 	err := gr.SetBranch(branchName)
 	assert.NoError(t, err)
 	assert.Equal(t, branchName, gr.Branch())
 }
 
-func TestGitRepo_SetBranchNotFound(t *testing.T) {
+func TestGitRepo_SetBranch_NotFound(t *testing.T) {
 	gr := initGitRepo(t, plumbing.NewBranchReferenceName(branchName))
 	err := gr.SetBranch("not-" + branchName)
 	assert.Equal(t, plumbing.ErrReferenceNotFound, errors.Unwrap(err))
+}
+
+func TestGitRepo_NewBranch(t *testing.T) {
+	gr := initGitRepo(t, plumbing.NewBranchReferenceName(branchName))
+	err := gr.NewBranch(branchName, "my-awesome-branch")
+	assert.NoError(t, err)
+	assert.Equal(t, "my-awesome-branch", gr.Branch())
+}
+
+func TestGitRepo_NewBranch_FromRemote(t *testing.T) {
+	gr := initGitRepo(t, plumbing.NewRemoteReferenceName(repo.RemoteName, branchName))
+	err := gr.NewBranch(branchName, "my-awesome-branch")
+	assert.NoError(t, err)
+	assert.Equal(t, "my-awesome-branch", gr.Branch())
+}
+
+func TestGitRepo_Push(t *testing.T) {
+	gr := initGitRepo(t, plumbing.NewRemoteReferenceName(repo.RemoteName, branchName))
+	err := gr.NewBranch(branchName, updateBranch)
+	require.NoError(t, err)
+	tmpFile := addTempFile(t, gr)
+
+	err = gr.Push(context.Background(), gomod.Update{
+		Path: "github.com/test",
+		Next: "v1.0.0",
+	})
+	require.NoError(t, err)
+
+	// Re-open repo and get log from the update branch:
+	r, err := git.PlainOpen(gr.Root())
+	require.NoError(t, err)
+	branchRef, err := r.Reference(plumbing.NewBranchReferenceName(updateBranch), true)
+	require.NoError(t, err)
+	log, err := r.Log(&git.LogOptions{
+		From: branchRef.Hash(),
+	})
+	require.NoError(t, err)
+	defer log.Close()
+
+	// Verify commit:
+	commit, err := log.Next()
+	require.NoError(t, err)
+	t.Logf("inspecting commit %s", commit.Hash)
+	assert.Equal(t, "update github.com/test to v1.0.0", commit.Message)
+	assert.Equal(t, repo.DefaultGitIdentity.Name, commit.Author.Name)
+	assert.Equal(t, repo.DefaultGitIdentity.Email, commit.Author.Email)
+
+	// File was added to tree with expected contents:
+	tree, err := commit.Tree()
+	require.NoError(t, err)
+	f, err := tree.File(tmpFile)
+	require.NoError(t, err)
+	fContents, err := f.Contents()
+	require.NoError(t, err)
+	assert.Equal(t, tmpFile, fContents)
+}
+
+func TestGitRepo_Push_WithRemote(t *testing.T) {
+	// Initialize a repo, clone it, then use the clone:
+	upstream := initRepo(t, plumbing.NewBranchReferenceName(branchName))
+	upstreamWt, err := upstream.Worktree()
+	require.NoError(t, err)
+	downstream, err := git.PlainClone(t.TempDir(), false, &git.CloneOptions{
+		URL: upstreamWt.Filesystem.Root(),
+	})
+	require.NoError(t, err)
+
+	gr, err := repo.NewGitRepo(downstream)
+	require.NoError(t, err)
+	err = gr.NewBranch(branchName, updateBranch)
+	require.NoError(t, err)
+	addTempFile(t, gr)
+
+	err = gr.Push(context.Background(), gomod.Update{
+		Path: "github.com/test",
+		Next: "v1.0.0",
+	})
+	require.NoError(t, err)
+
+	// Branch was pushed to upstream repo:
+	_, err = upstream.Reference(plumbing.NewBranchReferenceName(updateBranch), true)
+	assert.NoError(t, err)
+}
+
+func addTempFile(t *testing.T, gr *repo.GitRepo) string {
+	f, err := ioutil.TempFile(gr.Root(), "my-awesome-file-")
+	require.NoError(t, err)
+	fn := filepath.Base(f.Name())
+	_, err = f.WriteString(fn)
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	return fn
 }
 
 func initGitRepo(t *testing.T, refName plumbing.ReferenceName) *repo.GitRepo {

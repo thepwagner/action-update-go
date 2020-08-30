@@ -18,10 +18,11 @@ const RemoteName = "origin"
 
 // GitRepo is a Repo that synchronizes access to a single git working tree.
 type GitRepo struct {
-	repo   *git.Repository
-	wt     *git.Worktree
-	branch string
-	author GitIdentity
+	repo    *git.Repository
+	wt      *git.Worktree
+	branch  string
+	author  GitIdentity
+	remotes bool
 }
 
 var _ gomod.Repo = (*GitRepo)(nil)
@@ -32,7 +33,7 @@ type GitIdentity struct {
 	Email string
 }
 
-var defaultGitIdentity = GitIdentity{
+var DefaultGitIdentity = GitIdentity{
 	Name:  "actions-update-go",
 	Email: "noreply@github.com",
 }
@@ -51,15 +52,21 @@ func NewGitRepo(repo *git.Repository) (*GitRepo, error) {
 		return nil, fmt.Errorf("tree is dirty")
 	}
 
+	remotes, err := repo.Remotes()
+	if err != nil {
+		return nil, fmt.Errorf("listing remotes: %w", err)
+	}
+
 	var branch string
 	if head, err := repo.Head(); err == nil && head.Name().IsBranch() {
 		branch = head.Name().Short()
 	}
 	return &GitRepo{
-		repo:   repo,
-		wt:     wt,
-		branch: branch,
-		author: defaultGitIdentity,
+		repo:    repo,
+		wt:      wt,
+		branch:  branch,
+		remotes: len(remotes) > 0,
+		author:  DefaultGitIdentity,
 	}, nil
 }
 
@@ -120,7 +127,7 @@ func (t *GitRepo) NewBranch(baseBranch, branch string) error {
 			return fmt.Errorf("querying branch ref: %w", err)
 		}
 		log.Debug("not found locally, checking remote")
-		remoteRef, err := t.repo.Reference(plumbing.NewRemoteReferenceName(RemoteName, branch), true)
+		remoteRef, err := t.repo.Reference(plumbing.NewRemoteReferenceName(RemoteName, baseBranch), true)
 		if err != nil {
 			return fmt.Errorf("querying remote branch ref: %w", err)
 		}
@@ -207,6 +214,10 @@ func worktreeAddAll(wt *git.Worktree) error {
 }
 
 func (t *GitRepo) push(ctx context.Context) error {
+	if !t.remotes {
+		return nil
+	}
+
 	// go-git supports Push, but not the [http "https://github.com/"] .gitconfig directive that actions/checkout uses for auth
 	// we could extract from u.repo.Config().Raw, but who are we trying to impress?
 	cmd := exec.CommandContext(ctx, "git", "push", "-f")
@@ -214,5 +225,6 @@ func (t *GitRepo) push(ctx context.Context) error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("pushing: %w", err)
 	}
+	logrus.Debug("pushed to remote")
 	return nil
 }
