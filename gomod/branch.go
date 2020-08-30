@@ -4,9 +4,9 @@ import "path"
 
 const branchPrefix = "action-update-go"
 
-type UpdateBranchNamer func(baseBranch string, update ModuleUpdate) string
+type UpdateBranchNamer func(baseBranch string, update Update) string
 
-var DefaultUpdateBranchNamer = func(baseBranch string, u ModuleUpdate) string {
+var DefaultUpdateBranchNamer = func(baseBranch string, u Update) string {
 	var branchPkg string
 	if u.Major() {
 		branchPkg = path.Dir(u.Path)

@@ -4,8 +4,8 @@ import (
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 )
 
-// ModuleUpdate is change in version
-type ModuleUpdate struct {
+// Update is change in version to a specific path
+type Update struct {
 	// Path of module being updated
 	Path string
 	// Previous module version
@@ -15,6 +15,6 @@ type ModuleUpdate struct {
 }
 
 // Major returns true if the update changes major semver version
-func (u ModuleUpdate) Major() bool {
+func (u Update) Major() bool {
 	return semver.Major(u.Previous) != semver.Major(u.Next)
 }

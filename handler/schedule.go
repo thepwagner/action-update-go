@@ -20,7 +20,7 @@ func Schedule(ctx context.Context, env cmd.Environment, _ interface{}) error {
 		return err
 	}
 
-	updater, err := gomod.NewUpdater(sharedRepo, env.GitHubRepository, env.GitHubToken)
+	updater, err := gomod.NewRepoUpdater(sharedRepo, env.GitHubRepository, env.GitHubToken)
 	if err != nil {
 		return err
 	}

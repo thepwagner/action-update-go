@@ -23,7 +23,7 @@ type UpdateChecker struct {
 	RootDir       string
 }
 
-func (c *UpdateChecker) CheckForModuleUpdates(ctx context.Context, req *modfile.Require) (*ModuleUpdate, error) {
+func (c *UpdateChecker) CheckForModuleUpdates(ctx context.Context, req *modfile.Require) (*Update, error) {
 	path := req.Mod.Path
 	log := logrus.WithField("path", path)
 
@@ -51,7 +51,7 @@ func (c *UpdateChecker) CheckForModuleUpdates(ctx context.Context, req *modfile.
 
 var pathMajorVersionRE = regexp.MustCompile("/v([0-9]+)$")
 
-func (c *UpdateChecker) checkForMajorUpdate(ctx context.Context, req *modfile.Require) (*ModuleUpdate, error) {
+func (c *UpdateChecker) checkForMajorUpdate(ctx context.Context, req *modfile.Require) (*Update, error) {
 	// Does this look like a versioned path?
 	path := req.Mod.Path
 	m := pathMajorVersionRE.FindStringSubmatch(path)
@@ -83,14 +83,14 @@ func (c *UpdateChecker) checkForMajorUpdate(ctx context.Context, req *modfile.Re
 	}
 
 	log.Info("major upgrade available")
-	return &ModuleUpdate{
+	return &Update{
 		Path:     path,
 		Previous: version,
 		Next:     nfo.Version,
 	}, nil
 }
 
-func (c *UpdateChecker) checkForUpdate(ctx context.Context, req *modfile.Require) (*ModuleUpdate, error) {
+func (c *UpdateChecker) checkForUpdate(ctx context.Context, req *modfile.Require) (*Update, error) {
 	path := req.Mod.Path
 	log := logrus.WithField("path", path)
 	log.Debug("querying latest version")
@@ -116,7 +116,7 @@ func (c *UpdateChecker) checkForUpdate(ctx context.Context, req *modfile.Require
 		return nil, nil
 	}
 	log.Info("update available")
-	return &ModuleUpdate{
+	return &Update{
 		Path:     path,
 		Previous: version,
 		Next:     latestVersion,
