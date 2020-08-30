@@ -17,9 +17,9 @@ const (
 
 // RepoUpdater creates branches proposing all available updates for a Go module.
 type RepoUpdater struct {
-	repo       Repo
-	branchName UpdateBranchNamer
-	updater    *Updater
+	repo        Repo
+	branchNamer UpdateBranchNamer
+	updater     *Updater
 }
 
 // Repo interfaces with an SCM repository, probably Git.
@@ -32,16 +32,16 @@ type Repo interface {
 	// NewBranch creates and changes to a new branch.
 	NewBranch(baseBranch, branch string) error
 	// Push snapshots the working tree after an update has been applied, and "publishes".
-	// This is expected to commit. Publishing may mean push, create a PR, tweet the maintainer, whatever.
+	// This is branch to commit. Publishing may mean push, create a PR, tweet the maintainer, whatever.
 	Push(ctx context.Context, update Update) error
 }
 
 // NewRepoUpdater creates RepoUpdater.
 func NewRepoUpdater(repo Repo) (*RepoUpdater, error) {
 	u := &RepoUpdater{
-		repo:       repo,
-		branchName: DefaultUpdateBranchNamer,
-		updater:    &Updater{Tidy: true},
+		repo:        repo,
+		branchNamer: DefaultUpdateBranchNamer{},
+		updater:     &Updater{Tidy: true},
 	}
 	return u, nil
 }
@@ -96,7 +96,7 @@ func (u *RepoUpdater) parseGoMod() (*modfile.File, error) {
 }
 
 func (u *RepoUpdater) update(ctx context.Context, baseBranch string, update Update) error {
-	targetBranch := u.branchName(baseBranch, update)
+	targetBranch := u.branchNamer.Format(baseBranch, update)
 	if err := u.repo.NewBranch(baseBranch, targetBranch); err != nil {
 		return fmt.Errorf("switching to target branch: %w", err)
 	}
