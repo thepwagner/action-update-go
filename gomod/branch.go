@@ -7,12 +7,9 @@ import (
 
 const branchPrefix = "action-update-go"
 
-type UpdateBranchNamer interface {
-	Format(baseBranch string, update Update) string
-	Parse(string) (baseBranch string, update *Update)
-}
-
 type DefaultUpdateBranchNamer struct{}
+
+var _ UpdateBranchNamer = (*DefaultUpdateBranchNamer)(nil)
 
 func (d DefaultUpdateBranchNamer) Format(baseBranch string, update Update) string {
 	return path.Join(branchPrefix, baseBranch, update.Path, update.Next)

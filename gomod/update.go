@@ -18,3 +18,15 @@ type Update struct {
 func (u Update) Major() bool {
 	return semver.Major(u.Previous) != semver.Major(u.Next)
 }
+
+type UpdatesByBranch map[string][]Update
+
+func (p UpdatesByBranch) Add(baseBranch string, update Update) {
+	existing := p[baseBranch]
+	for _, u := range existing {
+		if u.Path == update.Path && u.Next == update.Next {
+			return
+		}
+	}
+	p[baseBranch] = append(existing, update)
+}

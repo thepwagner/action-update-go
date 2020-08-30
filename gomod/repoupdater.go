@@ -34,6 +34,14 @@ type Repo interface {
 	// Push snapshots the working tree after an update has been applied, and "publishes".
 	// This is branch to commit. Publishing may mean push, create a PR, tweet the maintainer, whatever.
 	Push(ctx context.Context, update Update) error
+	// OpenUpdates returns proposed updates waiting for user action.
+	OpenUpdates(ctx context.Context) (UpdatesByBranch, error)
+}
+
+// UpdateBranchNamer names branches for proposed updates.
+type UpdateBranchNamer interface {
+	Format(baseBranch string, update Update) string
+	Parse(string) (baseBranch string, update *Update)
 }
 
 // NewRepoUpdater creates RepoUpdater.

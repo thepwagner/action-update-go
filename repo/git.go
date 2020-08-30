@@ -231,3 +231,7 @@ func (t *GitRepo) push(ctx context.Context) error {
 	logrus.Debug("pushed to remote")
 	return nil
 }
+
+func (t *GitRepo) OpenUpdates(ctx context.Context) (gomod.UpdatesByBranch, error) {
+	return gomod.UpdatesByBranch{}, nil
+}
