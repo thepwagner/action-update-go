@@ -3,7 +3,7 @@ description: Update Go dependencies
 inputs:
   branches:
     description: 'Branches to update'
-    required: true
+    required: false
   token:
     description: >
       Personal access token (PAT) used to fetch the repository. The PAT is configured
@@ -13,7 +13,10 @@ inputs:
       Also when generating a new PAT, select the least scopes necessary.
       [Learn more about creating and using encrypted secrets](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/creating-and-using-encrypted-secrets)
     default: ${{ github.token }}
-
+    required: true
+  log_level:
+    description: 'Control debug/info/warn/error output'
+    required: false
 runs:
   using: node12
   main: dist/index.js

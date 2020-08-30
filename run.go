@@ -12,15 +12,16 @@ import (
 type HandlersByEventName map[string]handler.Handler
 
 func Run(ctx context.Context, handlers HandlersByEventName) error {
-
 	env, err := cmd.ParseEnvironment()
 	if err != nil {
 		return err
 	}
+	logrus.SetLevel(env.LogLevel())
 
+	log := logrus.WithField("event_name", env.GitHubEventName)
 	h, ok := handlers[env.GitHubEventName]
 	if !ok {
-		logrus.WithField("event_name", env.GitHubEventName).Info("unhandled event")
+		log.Info("unhandled event")
 		return nil
 	}
 
@@ -32,5 +33,9 @@ func Run(ctx context.Context, handlers HandlersByEventName) error {
 	// Set GOPRIVATE for private modules:
 	_ = os.Setenv("GOPRIVATE", "*")
 
-	return h(ctx, env, evt)
+	if err := h(ctx, env, evt); err != nil {
+		return err
+	}
+	log.Debug("handler complete")
+	return nil
 }

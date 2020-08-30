@@ -34,10 +34,19 @@ func Schedule(ctx context.Context, env cmd.Environment, _ interface{}) error {
 		return err
 	}
 
-	for _, b := range env.Branches() {
-		if err := updater.UpdateAll(ctx, b); err != nil {
-			return err
+	// If branches were provided as input, target those:
+	if branches := env.Branches(); len(branches) > 0 {
+		for _, b := range branches {
+			if err := updater.UpdateAll(ctx, b); err != nil {
+				return err
+			}
 		}
+		return nil
+	}
+
+	// No branches as input, fallback to current branch:
+	if err := updater.UpdateAll(ctx, gitRepo.Branch()); err != nil {
+		return err
 	}
 	return nil
 }

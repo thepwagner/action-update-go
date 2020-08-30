@@ -7,14 +7,17 @@ import (
 
 	"github.com/caarlos0/env/v5"
 	"github.com/google/go-github/v32/github"
+	"github.com/sirupsen/logrus"
 )
 
 type Environment struct {
 	GitHubEventName  string `env:"GITHUB_EVENT_NAME"`
 	GitHubEventPath  string `env:"GITHUB_EVENT_PATH"`
-	InputBranches    string `env:"INPUT_BRANCHES"`
 	GitHubRepository string `env:"GITHUB_REPOSITORY"`
-	GitHubToken      string `env:"INPUT_TOKEN"`
+
+	InputBranches string `env:"INPUT_BRANCHES"`
+	GitHubToken   string `env:"INPUT_TOKEN"`
+	InputLogLevel string `env:"INPUT_LOG_LEVEL" envDefault:"debug"`
 }
 
 func ParseEnvironment() (Environment, error) {
@@ -51,4 +54,13 @@ func (e Environment) Branches() (branches []string) {
 		}
 	}
 	return
+}
+
+func (e Environment) LogLevel() logrus.Level {
+	lvl, err := logrus.ParseLevel(e.InputLogLevel)
+	if err != nil {
+		logrus.WithError(err).Warn("could not parse log level")
+		lvl = logrus.InfoLevel
+	}
+	return lvl
 }
