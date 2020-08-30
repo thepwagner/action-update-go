@@ -14,16 +14,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	copy2 "github.com/otiai10/copy"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/gomod"
 	gitrepo "github.com/thepwagner/action-update-go/repo"
 )
-
-func init() {
-	logrus.SetLevel(logrus.DebugLevel)
-}
 
 const baseBranchCount = 2
 

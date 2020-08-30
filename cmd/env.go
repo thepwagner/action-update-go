@@ -20,15 +20,15 @@ type Environment struct {
 	InputLogLevel string `env:"INPUT_LOG_LEVEL" envDefault:"debug"`
 }
 
-func ParseEnvironment() (Environment, error) {
+func ParseEnvironment() (*Environment, error) {
 	var e Environment
 	if err := env.Parse(&e); err != nil {
-		return Environment{}, fmt.Errorf("parsing environment: %w", err)
+		return nil, fmt.Errorf("parsing environment: %w", err)
 	}
-	return e, nil
+	return &e, nil
 }
 
-func (e Environment) ParseEvent() (interface{}, error) {
+func (e *Environment) ParseEvent() (interface{}, error) {
 	switch e.GitHubEventName {
 	case "schedule", "workflow_dispatch":
 		return nil, nil
@@ -47,7 +47,7 @@ func (e Environment) ParseEvent() (interface{}, error) {
 	return evt, nil
 }
 
-func (e Environment) Branches() (branches []string) {
+func (e *Environment) Branches() (branches []string) {
 	for _, b := range strings.Split(e.InputBranches, "\n") {
 		if s := strings.TrimSpace(b); s != "" {
 			branches = append(branches, s)
@@ -56,7 +56,7 @@ func (e Environment) Branches() (branches []string) {
 	return
 }
 
-func (e Environment) LogLevel() logrus.Level {
+func (e *Environment) LogLevel() logrus.Level {
 	lvl, err := logrus.ParseLevel(e.InputLogLevel)
 	if err != nil {
 		logrus.WithError(err).Warn("could not parse log level")

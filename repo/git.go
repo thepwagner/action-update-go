@@ -225,7 +225,7 @@ func (t *GitRepo) push(ctx context.Context) error {
 		return nil
 	}
 
-	// go-git supports Push, but not the [http "https://github.com/"] .gitconfig directive that actions/checkout uses for auth
+	// go-git supports Push, but not the [http "https://github.com/"] .gitconfig that actions/checkout uses for auth
 	// we could extract from u.repo.Config().Raw, but who are we trying to impress?
 	cmd := exec.CommandContext(ctx, "git", "push", "-f")
 	cmd.Dir = t.Root()

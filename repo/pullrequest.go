@@ -9,10 +9,10 @@ import (
 	"github.com/thepwagner/action-update-go/gomod"
 )
 
-func DefaultPullRequestContentFiller(update gomod.Update) (string, string, error) {
-	title := fmt.Sprintf("Update %s from %s to %s", update.Path, update.Previous, update.Next)
-	body := stubPRBody(update)
-	return title, body, nil
+func DefaultPullRequestContentFiller(update gomod.Update) (title, body string, err error) {
+	title = fmt.Sprintf("Update %s from %s to %s", update.Path, update.Previous, update.Next)
+	body = stubPRBody(update)
+	return
 }
 
 var _ PullRequestContentFiller = DefaultPullRequestContentFiller

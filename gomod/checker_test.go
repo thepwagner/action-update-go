@@ -7,7 +7,6 @@ import (
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfile"
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/module"
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/gomod"
@@ -18,10 +17,6 @@ var goGitHub29 = &modfile.Require{
 		Path:    "github.com/google/go-github/v29",
 		Version: "v29.0.0",
 	},
-}
-
-func init() {
-	logrus.SetLevel(logrus.DebugLevel)
 }
 
 func TestUpdateChecker_CheckForModuleUpdates_Major(t *testing.T) {

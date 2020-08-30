@@ -54,7 +54,7 @@ func (c *UpdateChecker) CheckForModuleUpdates(ctx context.Context, req *modfile.
 	return latest, nil
 }
 
-var pathMajorVersionRE = regexp.MustCompile("/v([0-9]+)$")
+var pathMajorVersionRE = regexp.MustCompile(`/v(\d+)$`)
 
 func pathMajorVersion(path string, version int64) string {
 	// FIXME: this won't play nice with `github/v32/github`

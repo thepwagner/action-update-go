@@ -10,7 +10,7 @@ import (
 	gitrepo "github.com/thepwagner/action-update-go/repo"
 )
 
-func Schedule(ctx context.Context, env cmd.Environment, _ interface{}) error {
+func Schedule(ctx context.Context, env *cmd.Environment, _ interface{}) error {
 	repo, err := git.PlainOpen(".")
 	if err != nil {
 		return err

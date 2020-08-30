@@ -1,0 +1,12 @@
+#!/bin/bash -e
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+cd "${ROOT}/tools/golangci-lint"
+docker build -t golangci/golangci-lint:master .
+set -x
+exec docker run --rm \
+  -v "${ROOT}:/src:ro" \
+  -w "/src" \
+  golangci/golangci-lint:master
+

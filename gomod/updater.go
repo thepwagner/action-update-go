@@ -64,11 +64,8 @@ func updateGoMod(root string, update Update) error {
 		if err := goMod.AddRequire(pkgNext, update.Next); err != nil {
 			return fmt.Errorf("dropping requirement: %w", err)
 		}
-	} else {
-		// Replace the version:
-		if err := goMod.AddRequire(update.Path, update.Next); err != nil {
-			return fmt.Errorf("adding requirement: %w", err)
-		}
+	} else if err := goMod.AddRequire(update.Path, update.Next); err != nil {
+		return fmt.Errorf("adding requirement: %w", err)
 	}
 
 	updated, err := goMod.Format()
@@ -115,14 +112,14 @@ func updateSourceCode(root string, update Update) error {
 	})
 }
 
-func updateSourceFile(path string, pattern *regexp.Regexp, replace string) error {
-	f, err := os.OpenFile(path, os.O_RDWR, 0644)
+func updateSourceFile(srcFile string, pattern *regexp.Regexp, replace string) error {
+	f, err := os.OpenFile(srcFile, os.O_RDWR, 0644)
 	if err != nil {
 		return fmt.Errorf("reading source code file: %w", err)
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			logrus.WithField("file_path", path).WithError(err).Warn("closing source code file")
+			logrus.WithField("file_path", srcFile).WithError(err).Warn("closing source code file")
 		}
 	}()
 
@@ -153,7 +150,7 @@ func updateSourceFile(path string, pattern *regexp.Regexp, replace string) error
 	if !changed {
 		return nil
 	}
-	logrus.WithField("file_path", path).Debug("updating go file")
+	logrus.WithField("file_path", srcFile).Debug("updating go file")
 
 	if _, err := f.Seek(0, 0); err != nil {
 		return fmt.Errorf("resetting file offset: %w", err)

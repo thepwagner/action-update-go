@@ -10,7 +10,6 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/gomod"
@@ -30,10 +29,6 @@ var (
 		Next: "v1.0.0",
 	}
 )
-
-func init() {
-	logrus.SetLevel(logrus.DebugLevel)
-}
 
 func TestNewGitRepo(t *testing.T) {
 	gr := initGitRepo(t, plumbing.NewBranchReferenceName(branchName))

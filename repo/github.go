@@ -63,6 +63,9 @@ func (g *GitHubRepo) Push(ctx context.Context, update gomod.Update) error {
 
 func (g *GitHubRepo) createPR(ctx context.Context, update gomod.Update) error {
 	title, body, err := g.content(update)
+	if err != nil {
+		return fmt.Errorf("generating PR content: %w", err)
+	}
 	res, _, err := g.github.PullRequests.Create(ctx, g.owner, g.repoName, &github.NewPullRequest{
 		Title: &title,
 		Body:  &body,

@@ -9,7 +9,7 @@ import (
 	"github.com/thepwagner/action-update-go/cmd"
 )
 
-func IssueComment(_ context.Context, _ cmd.Environment, evt interface{}) error {
+func IssueComment(_ context.Context, _ *cmd.Environment, evt interface{}) error {
 	issueComment, ok := evt.(*github.IssueCommentEvent)
 	if !ok {
 		return fmt.Errorf("unexpected event")
