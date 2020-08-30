@@ -28,6 +28,10 @@ runs:
     shell: bash
   - run: env
     shell: bash
+    env:
+      INPUT_BRANCHES: ${{ inputs.branches }}
   - name: Run action-update-go
     run: pwd && "${{github.action_path}}/action-update-go"
     shell: bash
+    env:
+      INPUT_BRANCHES: ${{ inputs.branches }}
