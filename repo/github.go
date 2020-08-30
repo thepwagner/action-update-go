@@ -13,7 +13,7 @@ import (
 
 // GitHubRepo wraps GitRepo to create a GitHub PR for the pushed branch.
 type GitHubRepo struct {
-	repo gomod.Repo
+	repo *GitRepo
 
 	content  PullRequestContentFiller
 	github   *github.Client
@@ -25,7 +25,7 @@ var _ gomod.Repo = (*GitHubRepo)(nil)
 
 type PullRequestContentFiller func(gomod.Update) (title, body string, err error)
 
-func NewGitHubRepo(repo gomod.Repo, repoNameOwner, token string) (*GitHubRepo, error) {
+func NewGitHubRepo(repo *GitRepo, repoNameOwner, token string) (*GitHubRepo, error) {
 	ghRepoSplit := strings.Split(repoNameOwner, "/")
 	if len(ghRepoSplit) != 2 {
 		return nil, fmt.Errorf("expected repo in OWNER/NAME format")
@@ -66,12 +66,14 @@ func (g *GitHubRepo) createPR(ctx context.Context, update gomod.Update) error {
 	if err != nil {
 		return fmt.Errorf("generating PR content: %w", err)
 	}
-	res, _, err := g.github.PullRequests.Create(ctx, g.owner, g.repoName, &github.NewPullRequest{
+
+	branch := g.repo.Branch()
+	baseBranch, _ := g.repo.branchNamer.Parse(branch)
+	pullRequest, _, err := g.github.PullRequests.Create(ctx, g.owner, g.repoName, &github.NewPullRequest{
 		Title: &title,
 		Body:  &body,
-		// TODO: how to reference these neatly...
-		//Base:  github.String(update.Base.Name().Short()),
-		//Head:  github.String(update.BranchName()),
+		Base:  &baseBranch,
+		Head:  &branch,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "pull request already exists") {
@@ -79,6 +81,6 @@ func (g *GitHubRepo) createPR(ctx context.Context, update gomod.Update) error {
 		}
 		return fmt.Errorf("creating PR: %w", err)
 	}
-	logrus.WithField("pr_id", res.ID).Info("created pull request")
+	logrus.WithField("pr_id", *pullRequest.ID).Info("created pull request")
 	return nil
 }
