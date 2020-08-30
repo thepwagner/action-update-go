@@ -108,7 +108,6 @@ func updateSourceCode(root string, update Update) error {
 		if filepath.Ext(path) != ".go" {
 			return nil
 		}
-		logrus.WithField("file_path", path).Debug("updating go file")
 		if err := updateSourceFile(path, pattern, pkgNext); err != nil {
 			return err
 		}
@@ -154,6 +153,7 @@ func updateSourceFile(path string, pattern *regexp.Regexp, replace string) error
 	if !changed {
 		return nil
 	}
+	logrus.WithField("file_path", path).Debug("updating go file")
 
 	if _, err := f.Seek(0, 0); err != nil {
 		return fmt.Errorf("resetting file offset: %w", err)

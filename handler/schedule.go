@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/cmd"
 	"github.com/thepwagner/action-update-go/gomod"
 	gitrepo "github.com/thepwagner/action-update-go/repo"
@@ -34,6 +35,13 @@ func Schedule(ctx context.Context, env cmd.Environment, _ interface{}) error {
 		return err
 	}
 
+	initialBranch := gitRepo.Branch()
+	defer func() {
+		if err := gitRepo.SetBranch(initialBranch); err != nil {
+			logrus.WithError(err).Warn("error reverting to initial branch")
+		}
+	}()
+
 	// If branches were provided as input, target those:
 	if branches := env.Branches(); len(branches) > 0 {
 		for _, b := range branches {
@@ -45,7 +53,7 @@ func Schedule(ctx context.Context, env cmd.Environment, _ interface{}) error {
 	}
 
 	// No branches as input, fallback to current branch:
-	if err := updater.UpdateAll(ctx, gitRepo.Branch()); err != nil {
+	if err := updater.UpdateAll(ctx, initialBranch); err != nil {
 		return err
 	}
 	return nil
