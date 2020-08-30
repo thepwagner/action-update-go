@@ -30,17 +30,35 @@ type Updates struct {
 
 func (p UpdatesByBranch) AddOpen(baseBranch string, update Update) {
 	existing := p[baseBranch]
-	for _, u := range existing.Open {
-		if u.Path == update.Path && u.Next == update.Next {
-			return
-		}
-	}
-	existing.Open = append(existing.Open, update)
+	existing.Open = addUpdate(existing.Open, update)
 	p[baseBranch] = existing
 }
 
-func (u Updates) OpenUpdate(update Update) string {
-	for _, u := range u.Open {
+func (p UpdatesByBranch) AddClosed(baseBranch string, update Update) {
+	existing := p[baseBranch]
+	existing.Closed = addUpdate(existing.Closed, update)
+	p[baseBranch] = existing
+}
+
+func addUpdate(existing []Update, update Update) []Update {
+	for _, u := range existing {
+		if u.Path == update.Path && u.Next == update.Next {
+			return existing
+		}
+	}
+	return append(existing, update)
+}
+
+func (u Updates) OpenUpdate(update *Update) string {
+	return containsUpdate(u.Open, update)
+}
+
+func (u Updates) ClosedUpdate(update *Update) string {
+	return containsUpdate(u.Closed, update)
+}
+
+func containsUpdate(updateList []Update, update *Update) string {
+	for _, u := range updateList {
 		if u.Path != update.Path {
 			continue
 		}

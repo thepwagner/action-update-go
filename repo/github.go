@@ -47,8 +47,50 @@ func (g GitHubRepo) SetBranch(branch string) error { return g.repo.SetBranch(bra
 func (g GitHubRepo) NewBranch(baseBranch string, update gomod.Update) error {
 	return g.repo.NewBranch(baseBranch, update)
 }
-func (g GitHubRepo) Updates(ctx context.Context) (gomod.UpdatesByBranch, error) {
-	return g.repo.Updates(ctx)
+
+func (g *GitHubRepo) Updates(ctx context.Context) (gomod.UpdatesByBranch, error) {
+	updates, err := g.repo.Updates(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := g.addUpdatesFromPR(ctx, updates); err != nil {
+		return nil, err
+	}
+
+	return updates, nil
+}
+
+func (g *GitHubRepo) addUpdatesFromPR(ctx context.Context, updates gomod.UpdatesByBranch) error {
+	prList, _, err := g.github.PullRequests.List(ctx, g.owner, g.repoName, &github.PullRequestListOptions{
+		State: "all",
+	})
+	if err != nil {
+		return fmt.Errorf("listing pull requests: %w", err)
+	}
+
+	for _, pr := range prList {
+		base, update := g.repo.branchNamer.Parse(*pr.Head.Ref)
+		if update == nil {
+			continue
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"base_branch": base,
+			"path":        update.Path,
+			"version":     update.Next,
+		}).Debug("found existing PR")
+
+		switch pr.GetState() {
+		case "open":
+			updates.AddOpen(base, *update)
+		case "closed":
+			if !pr.GetMerged() {
+				updates.AddClosed(base, *update)
+			}
+		}
+	}
+	return nil
 }
 
 func (g *GitHubRepo) Push(ctx context.Context, update gomod.Update) error {

@@ -97,10 +97,15 @@ func (c *UpdateChecker) checkForMajorUpdate(ctx context.Context, req *modfile.Re
 		Previous: version,
 		Next:     nfo.Version,
 	}
-	if open := c.ExistingUpdates.OpenUpdate(*update); open != "" {
+	if open := c.ExistingUpdates.OpenUpdate(update); open != "" {
 		log.WithField("existing_version", open).Debug("update already open")
 		return nil, nil
 	}
+	if closed := c.ExistingUpdates.ClosedUpdate(update); closed != "" {
+		log.WithField("existing_version", closed).Debug("update already closed")
+		return nil, nil
+	}
+
 	log.Info("major upgrade available")
 	return update, nil
 }
@@ -136,8 +141,12 @@ func (c *UpdateChecker) checkForUpdate(ctx context.Context, req *modfile.Require
 		Previous: version,
 		Next:     latestVersion,
 	}
-	if open := c.ExistingUpdates.OpenUpdate(*update); open != "" {
+	if open := c.ExistingUpdates.OpenUpdate(update); open != "" {
 		log.WithField("existing_version", open).Debug("update already open")
+		return nil, nil
+	}
+	if closed := c.ExistingUpdates.ClosedUpdate(update); closed != "" {
+		log.WithField("existing_version", closed).Debug("update already closed")
 		return nil, nil
 	}
 
