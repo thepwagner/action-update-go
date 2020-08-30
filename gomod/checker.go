@@ -17,11 +17,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TODO: support replace directives
 type UpdateChecker struct {
 	MajorVersions bool
 	RootDir       string
 }
+
+// TODO: support replace directives
+// TODO: filtering allowable updates:
+// - include/exclude paths to check for updates
+// - filter versions in include filter? (e.g. include pkg/foo < v4)
 
 func (c *UpdateChecker) CheckForModuleUpdates(ctx context.Context, req *modfile.Require) (*Update, error) {
 	path := req.Mod.Path

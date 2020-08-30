@@ -15,25 +15,28 @@ const (
 	VendorModulesFn = "vendor/modules.txt"
 )
 
-// RepoUpdater creates update branches for all potential updates to a Go module.
+// RepoUpdater creates branches proposing all available updates for a Go module.
 type RepoUpdater struct {
 	repo       Repo
 	branchName UpdateBranchNamer
 	updater    *Updater
 }
 
-// Repo interfaces with (probably Git) repository
+// Repo interfaces with an SCM repository, probably Git.
 type Repo interface {
 	// Root returns the working tree root.
+	// This should minimally contain go.{mod,sum}. Vendoring or major updates require the full tree.
 	Root() string
 	// SetBranch changes to an existing branch.
 	SetBranch(branch string) error
 	// NewBranch creates and changes to a new branch.
 	NewBranch(baseBranch, branch string) error
-	// Push snapshots and publishes (commit. then push, create PR, tweet, whatever).
+	// Push snapshots the working tree after an update has been applied, and "publishes".
+	// This is expected to commit. Publishing may mean push, create a PR, tweet the maintainer, whatever.
 	Push(ctx context.Context, update Update) error
 }
 
+// NewRepoUpdater creates RepoUpdater.
 func NewRepoUpdater(repo Repo) (*RepoUpdater, error) {
 	u := &RepoUpdater{
 		repo:       repo,
@@ -43,6 +46,7 @@ func NewRepoUpdater(repo Repo) (*RepoUpdater, error) {
 	return u, nil
 }
 
+// UpdateAll creates updates from a base branch in the Repo.
 func (u *RepoUpdater) UpdateAll(ctx context.Context, branch string) error {
 	// Switch to base branch:
 	if err := u.repo.SetBranch(branch); err != nil {
@@ -57,12 +61,11 @@ func (u *RepoUpdater) UpdateAll(ctx context.Context, branch string) error {
 	log := logrus.WithField("branch", branch)
 	log.WithField("deps", len(goMod.Require)).Info("parsed go.mod, checking for updates")
 
+	// Iterate dependencies:
 	checker := &UpdateChecker{
 		MajorVersions: true,
 		RootDir:       u.repo.Root(),
 	}
-
-	// Iterate dependencies:
 	for _, req := range goMod.Require {
 		update, err := checker.CheckForModuleUpdates(ctx, req)
 		if err != nil {
