@@ -26,6 +26,8 @@ runs:
   - name: Compile action-update-go
     run: cd "${{github.action_path}}" && go build -o ./action-update-go .
     shell: bash
+  - run: env
+    shell: bash
   - name: Run action-update-go
     run: pwd && "${{github.action_path}}/action-update-go"
     shell: bash
