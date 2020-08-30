@@ -24,4 +24,4 @@ jobs:
           log_level: debug
           branches: |
             main
-            vendor
+            novendor
