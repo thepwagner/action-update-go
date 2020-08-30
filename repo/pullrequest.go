@@ -27,7 +27,7 @@ func stubPRBody(update gomod.Update) string {
 	major := semver.Major(update.Previous) != semver.Major(update.Next)
 	minor := !major && semver.MajorMinor(update.Previous) != semver.MajorMinor(update.Next)
 	details := struct {
-		Major bool `json:"Major"`
+		Major bool `json:"major"`
 		Minor bool `json:"minor"`
 		Patch bool `json:"patch"`
 	}{
