@@ -49,6 +49,9 @@ func NewGitRepo(repo *git.Repository) (*GitRepo, error) {
 	if status, err := wt.Status(); err != nil {
 		return nil, fmt.Errorf("getting worktree status: %w", err)
 	} else if !status.IsClean() {
+		for fn := range status {
+			logrus.WithField("fn", fn).Warn("unexpected file in tree")
+		}
 		return nil, fmt.Errorf("tree is dirty")
 	}
 
