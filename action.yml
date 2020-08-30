@@ -26,12 +26,10 @@ runs:
   - name: Compile action-update-go
     run: cd "${{github.action_path}}" && go build -o ./action-update-go .
     shell: bash
-  - run: env
-    shell: bash
-    env:
-      INPUT_BRANCHES: ${{ inputs.branches }}
   - name: Run action-update-go
     run: pwd && "${{github.action_path}}/action-update-go"
     shell: bash
     env:
       INPUT_BRANCHES: ${{ inputs.branches }}
+      INPUT_TOKEN: ${{ inputs.token }}
+      INPUT_LOG_LEVEL: ${{ inputs.log_level }}
