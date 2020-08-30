@@ -47,8 +47,8 @@ func (g GitHubRepo) SetBranch(branch string) error { return g.repo.SetBranch(bra
 func (g GitHubRepo) NewBranch(baseBranch, branch string) error {
 	return g.repo.NewBranch(baseBranch, branch)
 }
-func (g GitHubRepo) OpenUpdates(ctx context.Context) (gomod.UpdatesByBranch, error) {
-	return g.repo.OpenUpdates(ctx)
+func (g GitHubRepo) Updates(ctx context.Context) (gomod.UpdatesByBranch, error) {
+	return g.repo.Updates(ctx)
 }
 
 func (g *GitHubRepo) Push(ctx context.Context, update gomod.Update) error {

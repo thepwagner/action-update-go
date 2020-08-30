@@ -18,8 +18,9 @@ import (
 )
 
 type UpdateChecker struct {
-	MajorVersions bool
-	RootDir       string
+	MajorVersions   bool
+	RootDir         string
+	ExistingUpdates Updates
 }
 
 // TODO: support replace directives

@@ -232,6 +232,6 @@ func (t *GitRepo) push(ctx context.Context) error {
 	return nil
 }
 
-func (t *GitRepo) OpenUpdates(ctx context.Context) (gomod.UpdatesByBranch, error) {
+func (t *GitRepo) Updates(ctx context.Context) (gomod.UpdatesByBranch, error) {
 	return gomod.UpdatesByBranch{}, nil
 }

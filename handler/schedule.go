@@ -44,10 +44,8 @@ func Schedule(ctx context.Context, env cmd.Environment, _ interface{}) error {
 
 	// If branches were provided as input, target those:
 	if branches := env.Branches(); len(branches) > 0 {
-		for _, b := range branches {
-			if err := updater.UpdateAll(ctx, b); err != nil {
-				return err
-			}
+		if err := updater.UpdateAll(ctx, branches...); err != nil {
+			return err
 		}
 		return nil
 	}
