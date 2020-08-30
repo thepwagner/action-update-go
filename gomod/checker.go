@@ -92,12 +92,17 @@ func (c *UpdateChecker) checkForMajorUpdate(ctx context.Context, req *modfile.Re
 		return nil, nil
 	}
 
-	log.Info("major upgrade available")
-	return &Update{
+	update := &Update{
 		Path:     path,
 		Previous: version,
 		Next:     nfo.Version,
-	}, nil
+	}
+	if open := c.ExistingUpdates.OpenUpdate(*update); open != "" {
+		log.WithField("existing_version", open).Debug("update already open")
+		return nil, nil
+	}
+	log.Info("major upgrade available")
+	return update, nil
 }
 
 func (c *UpdateChecker) checkForUpdate(ctx context.Context, req *modfile.Require) (*Update, error) {
@@ -125,23 +130,33 @@ func (c *UpdateChecker) checkForUpdate(ctx context.Context, req *modfile.Require
 		log.Debug("no update available")
 		return nil, nil
 	}
-	log.Info("update available")
-	return &Update{
+
+	update := &Update{
 		Path:     path,
 		Previous: version,
 		Next:     latestVersion,
-	}, nil
+	}
+	if open := c.ExistingUpdates.OpenUpdate(*update); open != "" {
+		log.WithField("existing_version", open).Debug("update already open")
+		return nil, nil
+	}
+
+	log.Info("update available")
+	return update, nil
 }
 
-func (c *UpdateChecker) queryModuleVersions(ctx context.Context, nextVersionPath string) (*modinfo.ModulePublic, error) {
+func (c *UpdateChecker) queryModuleVersions(ctx context.Context, path string) (*modinfo.ModulePublic, error) {
 	var buf bytes.Buffer
 	var errBuf bytes.Buffer
-	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-mod=mod", "-versions", "-json", nextVersionPath)
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-mod=mod", "-versions", "-json", path)
 	cmd.Stdout = &buf
 	cmd.Stderr = &errBuf
 	cmd.Dir = c.RootDir
 	if err := cmd.Run(); err != nil {
-		logrus.WithField("stderr", errBuf.String()).Warn("module versions query error")
+		errString := errBuf.String()
+		if !strings.Contains(errString, "no matching versions for query") {
+			logrus.WithField("stderr", errString).Warn("module versions query error")
+		}
 		return nil, fmt.Errorf("querying versions: %w", err)
 	}
 	var nfo modinfo.ModulePublic

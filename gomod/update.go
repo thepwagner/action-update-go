@@ -38,3 +38,15 @@ func (p UpdatesByBranch) AddOpen(baseBranch string, update Update) {
 	existing.Open = append(existing.Open, update)
 	p[baseBranch] = existing
 }
+
+func (u Updates) OpenUpdate(update Update) string {
+	for _, u := range u.Open {
+		if u.Path != update.Path {
+			continue
+		}
+		if semver.Compare(u.Next, update.Next) <= 0 {
+			return u.Next
+		}
+	}
+	return ""
+}

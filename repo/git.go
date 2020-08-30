@@ -23,6 +23,8 @@ type GitRepo struct {
 	branch  string
 	author  GitIdentity
 	remotes bool
+
+	branchNamer UpdateBranchNamer
 }
 
 var _ gomod.Repo = (*GitRepo)(nil)
@@ -65,11 +67,12 @@ func NewGitRepo(repo *git.Repository) (*GitRepo, error) {
 		branch = head.Name().Short()
 	}
 	return &GitRepo{
-		repo:    repo,
-		wt:      wt,
-		branch:  branch,
-		remotes: len(remotes) > 0,
-		author:  DefaultGitIdentity,
+		repo:        repo,
+		wt:          wt,
+		branch:      branch,
+		remotes:     len(remotes) > 0,
+		author:      DefaultGitIdentity,
+		branchNamer: DefaultUpdateBranchNamer{},
 	}, nil
 }
 
@@ -116,7 +119,8 @@ func (t *GitRepo) setBranch(refName plumbing.ReferenceName) error {
 	return nil
 }
 
-func (t *GitRepo) NewBranch(baseBranch, branch string) error {
+func (t *GitRepo) NewBranch(baseBranch string, update gomod.Update) error {
+	branch := t.branchNamer.Format(baseBranch, update)
 	log := logrus.WithFields(logrus.Fields{
 		"base":   baseBranch,
 		"branch": branch,
@@ -232,6 +236,22 @@ func (t *GitRepo) push(ctx context.Context) error {
 	return nil
 }
 
-func (t *GitRepo) Updates(ctx context.Context) (gomod.UpdatesByBranch, error) {
-	return gomod.UpdatesByBranch{}, nil
+func (t *GitRepo) Updates(_ context.Context) (gomod.UpdatesByBranch, error) {
+	branches, err := t.repo.Branches()
+	if err != nil {
+		return nil, fmt.Errorf("iterating branches: %w", err)
+	}
+	defer branches.Close()
+
+	ret := gomod.UpdatesByBranch{}
+	addToIndex := func(ref *plumbing.Reference) error {
+		if base, update := t.branchNamer.Parse(ref.Name().Short()); update != nil {
+			ret.AddOpen(base, *update)
+		}
+		return nil
+	}
+	if err := branches.ForEach(addToIndex); err != nil {
+		return nil, fmt.Errorf("indexing branches: %w", err)
+	}
+	return ret, nil
 }

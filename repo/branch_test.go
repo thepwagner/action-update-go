@@ -1,4 +1,4 @@
-package gomod_test
+package repo_test
 
 import (
 	"fmt"
@@ -6,11 +6,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thepwagner/action-update-go/gomod"
+	"github.com/thepwagner/action-update-go/repo"
 )
 
 func TestDefaultUpdateBranchName(t *testing.T) {
 	const baseBranch = "main"
-	branchNamer := gomod.DefaultUpdateBranchNamer{}
+	branchNamer := repo.DefaultUpdateBranchNamer{}
 
 	cases := []struct {
 		branch string

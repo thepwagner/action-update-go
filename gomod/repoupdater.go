@@ -17,9 +17,8 @@ const (
 
 // RepoUpdater creates branches proposing all available updates for a Go module.
 type RepoUpdater struct {
-	repo        Repo
-	branchNamer UpdateBranchNamer
-	updater     *Updater
+	repo    Repo
+	updater *Updater
 }
 
 // Repo interfaces with an SCM repository, probably Git.
@@ -30,26 +29,19 @@ type Repo interface {
 	// SetBranch changes to an existing branch.
 	SetBranch(branch string) error
 	// NewBranch creates and changes to a new branch.
-	NewBranch(baseBranch, branch string) error
+	NewBranch(baseBranch string, update Update) error
 	// Push snapshots the working tree after an update has been applied, and "publishes".
 	// This is branch to commit. Publishing may mean push, create a PR, tweet the maintainer, whatever.
-	Push(ctx context.Context, update Update) error
+	Push(context.Context, Update) error
 	// OpenUpdates returns any existing updates in the repo.
-	Updates(ctx context.Context) (UpdatesByBranch, error)
-}
-
-// UpdateBranchNamer names branches for proposed updates.
-type UpdateBranchNamer interface {
-	Format(baseBranch string, update Update) string
-	Parse(string) (baseBranch string, update *Update)
+	Updates(context.Context) (UpdatesByBranch, error)
 }
 
 // NewRepoUpdater creates RepoUpdater.
 func NewRepoUpdater(repo Repo) (*RepoUpdater, error) {
 	u := &RepoUpdater{
-		repo:        repo,
-		branchNamer: DefaultUpdateBranchNamer{},
-		updater:     &Updater{Tidy: true},
+		repo:    repo,
+		updater: &Updater{Tidy: true},
 	}
 	return u, nil
 }
@@ -112,17 +104,13 @@ func (u *RepoUpdater) parseGoMod() (*modfile.File, error) {
 }
 
 func (u *RepoUpdater) update(ctx context.Context, baseBranch string, update Update) error {
-	targetBranch := u.branchNamer.Format(baseBranch, update)
-	if err := u.repo.NewBranch(baseBranch, targetBranch); err != nil {
+	if err := u.repo.NewBranch(baseBranch, update); err != nil {
 		return fmt.Errorf("switching to target branch: %w", err)
 	}
 
 	if err := u.updater.ApplyUpdate(ctx, u.repo.Root(), update); err != nil {
 		return fmt.Errorf("applying update: %w", err)
 	}
-
-	logrus.Error("pwagner fixme")
-	return nil
 
 	if err := u.repo.Push(ctx, update); err != nil {
 		return fmt.Errorf("pushing update: %w", err)

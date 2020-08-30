@@ -20,10 +20,16 @@ import (
 const (
 	branchName   = "main"
 	fileName     = "README.md"
-	updateBranch = "my-awesome-branch"
+	updateBranch = "action-update-go/main/github.com/foo/bar/v1.0.0"
 )
 
-var fileData = []byte{1, 2, 3, 4}
+var (
+	fileData = []byte{1, 2, 3, 4}
+	update   = gomod.Update{
+		Path: "github.com/foo/bar",
+		Next: "v1.0.0",
+	}
+)
 
 func init() {
 	logrus.SetLevel(logrus.DebugLevel)
@@ -78,21 +84,21 @@ func TestGitRepo_SetBranch_NotFound(t *testing.T) {
 
 func TestGitRepo_NewBranch(t *testing.T) {
 	gr := initGitRepo(t, plumbing.NewBranchReferenceName(branchName))
-	err := gr.NewBranch(branchName, "my-awesome-branch")
+	err := gr.NewBranch(branchName, update)
 	assert.NoError(t, err)
-	assert.Equal(t, "my-awesome-branch", gr.Branch())
+	assert.Equal(t, updateBranch, gr.Branch())
 }
 
 func TestGitRepo_NewBranch_FromRemote(t *testing.T) {
 	gr := initGitRepo(t, plumbing.NewRemoteReferenceName(repo.RemoteName, branchName))
-	err := gr.NewBranch(branchName, "my-awesome-branch")
+	err := gr.NewBranch(branchName, update)
 	assert.NoError(t, err)
-	assert.Equal(t, "my-awesome-branch", gr.Branch())
+	assert.Equal(t, updateBranch, gr.Branch())
 }
 
 func TestGitRepo_Push(t *testing.T) {
 	gr := initGitRepo(t, plumbing.NewRemoteReferenceName(repo.RemoteName, branchName))
-	err := gr.NewBranch(branchName, updateBranch)
+	err := gr.NewBranch(branchName, update)
 	require.NoError(t, err)
 	tmpFile := addTempFile(t, gr)
 
@@ -143,7 +149,7 @@ func TestGitRepo_Push_WithRemote(t *testing.T) {
 
 	gr, err := repo.NewGitRepo(downstream)
 	require.NoError(t, err)
-	err = gr.NewBranch(branchName, updateBranch)
+	err = gr.NewBranch(branchName, update)
 	require.NoError(t, err)
 	addTempFile(t, gr)
 

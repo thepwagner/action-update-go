@@ -44,8 +44,8 @@ func NewGitHubRepo(repo gomod.Repo, repoNameOwner, token string) (*GitHubRepo, e
 
 func (g GitHubRepo) Root() string                  { return g.repo.Root() }
 func (g GitHubRepo) SetBranch(branch string) error { return g.repo.SetBranch(branch) }
-func (g GitHubRepo) NewBranch(baseBranch, branch string) error {
-	return g.repo.NewBranch(baseBranch, branch)
+func (g GitHubRepo) NewBranch(baseBranch string, update gomod.Update) error {
+	return g.repo.NewBranch(baseBranch, update)
 }
 func (g GitHubRepo) Updates(ctx context.Context) (gomod.UpdatesByBranch, error) {
 	return g.repo.Updates(ctx)
