@@ -17,7 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	gitrepo "github.com/thepwagner/action-update-go/gitrepo"
+	gitrepo "github.com/thepwagner/action-update-go/repo"
 	"github.com/thepwagner/action-update-go/gomod"
 )
 
@@ -82,7 +82,7 @@ func TestUpdater_UpdateAll_Major(t *testing.T) {
 
 func TestUpdater_UpdateAll_MultiBranch(t *testing.T) {
 	upstream, downstream := fixtureRepos(t, "simple")
-	r, err := gitrepo.NewSingleTreeRepo(downstream)
+	r, err := gitrepo.NewGitRepo(downstream)
 	require.NoError(t, err)
 	u, err := gomod.NewRepoUpdater(r, "", "")
 	require.NoError(t, err)
@@ -100,7 +100,7 @@ func TestUpdater_UpdateAll_MultiBranch(t *testing.T) {
 
 func updateAllInFixture(t *testing.T, fixture string) *git.Repository {
 	upstream, downstream := fixtureRepos(t, fixture)
-	r, err := gitrepo.NewSingleTreeRepo(downstream)
+	r, err := gitrepo.NewGitRepo(downstream)
 	require.NoError(t, err)
 	u, err := gomod.NewRepoUpdater(r, "", "")
 	require.NoError(t, err)

@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/thepwagner/action-update-go/cmd"
-	gitrepo "github.com/thepwagner/action-update-go/gitrepo"
+	gitrepo "github.com/thepwagner/action-update-go/repo"
 	"github.com/thepwagner/action-update-go/gomod"
 )
 
@@ -15,7 +15,7 @@ func Schedule(ctx context.Context, env cmd.Environment, _ interface{}) error {
 		return err
 	}
 
-	sharedRepo, err := gitrepo.NewSingleTreeRepo(repo)
+	sharedRepo, err := gitrepo.NewGitRepo(repo)
 	if err != nil {
 		return err
 	}

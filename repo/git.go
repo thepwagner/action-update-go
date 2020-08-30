@@ -1,4 +1,4 @@
-package gitrepo
+package repo
 
 import (
 	"context"
@@ -16,23 +16,29 @@ import (
 
 const RemoteName = "origin"
 
-type GitIdentity struct {
-	Name  string
-	Email string
-}
-
-// SingleTreeRepo is a Repo that synchronizes access to a single git working tree.
-type SingleTreeRepo struct {
+// GitRepo is a Repo that synchronizes access to a single git working tree.
+type GitRepo struct {
 	repo   *git.Repository
 	wt     *git.Worktree
 	branch string
 	author GitIdentity
 }
 
-var _ gomod.Repo = (*SingleTreeRepo)(nil)
+var _ gomod.Repo = (*GitRepo)(nil)
 
-// NewSingleTreeRepo creates SingleTreeRepo.
-func NewSingleTreeRepo(repo *git.Repository) (*SingleTreeRepo, error) {
+// GitIdentity performs commits.
+type GitIdentity struct {
+	Name  string
+	Email string
+}
+
+var defaultGitIdentity = GitIdentity{
+	Name:  "actions-update-go",
+	Email: "noreply@github.com",
+}
+
+// NewGitRepo creates GitRepo.
+func NewGitRepo(repo *git.Repository) (*GitRepo, error) {
 	wt, err := repo.Worktree()
 	if err != nil {
 		return nil, fmt.Errorf("getting work tree: %w", err)
@@ -49,23 +55,19 @@ func NewSingleTreeRepo(repo *git.Repository) (*SingleTreeRepo, error) {
 	if head, err := repo.Head(); err == nil && head.Name().IsBranch() {
 		branch = head.Name().Short()
 	}
-
-	return &SingleTreeRepo{
+	return &GitRepo{
 		repo:   repo,
 		wt:     wt,
 		branch: branch,
-		author: GitIdentity{
-			Name:  "actions-update-go",
-			Email: "noreply@github.com",
-		},
+		author: defaultGitIdentity,
 	}, nil
 }
 
-func (t *SingleTreeRepo) Branch() string {
+func (t *GitRepo) Branch() string {
 	return t.branch
 }
 
-func (t *SingleTreeRepo) SetBranch(branch string) error {
+func (t *GitRepo) SetBranch(branch string) error {
 	log := logrus.WithField("branch", branch)
 	log.Debug("switching branch")
 	refName := plumbing.NewBranchReferenceName(branch)
@@ -90,12 +92,12 @@ func (t *SingleTreeRepo) SetBranch(branch string) error {
 	}
 
 	if err := t.setBranch(ref.Name()); err != nil {
-		return fmt.Errorf("switching to branch:%w", err)
+		return err
 	}
 	return nil
 }
 
-func (t *SingleTreeRepo) setBranch(refName plumbing.ReferenceName) error {
+func (t *GitRepo) setBranch(refName plumbing.ReferenceName) error {
 	err := t.wt.Checkout(&git.CheckoutOptions{Branch: refName})
 	if err != nil {
 		return fmt.Errorf("checking out branch: %w", err)
@@ -104,7 +106,7 @@ func (t *SingleTreeRepo) setBranch(refName plumbing.ReferenceName) error {
 	return nil
 }
 
-func (t *SingleTreeRepo) NewBranch(baseBranch, branch string) error {
+func (t *GitRepo) NewBranch(baseBranch, branch string) error {
 	log := logrus.WithFields(logrus.Fields{
 		"base":   baseBranch,
 		"branch": branch,
@@ -139,17 +141,18 @@ func (t *SingleTreeRepo) NewBranch(baseBranch, branch string) error {
 		return fmt.Errorf("creating branch: %w", err)
 	}
 	log.WithField("base_ref", baseRef.Name()).Debug("branch created")
+
 	if err := t.setBranch(branchRefName); err != nil {
-		return fmt.Errorf("switching to new branch:%w", err)
+		return err
 	}
 	return nil
 }
 
-func (t *SingleTreeRepo) Root() string {
+func (t *GitRepo) Root() string {
 	return t.wt.Filesystem.Root()
 }
 
-func (t *SingleTreeRepo) Push(ctx context.Context, update gomod.Update) error {
+func (t *GitRepo) Push(ctx context.Context, update gomod.Update) error {
 	// TODO: dependency inject this?
 	commitMessage := fmt.Sprintf("update %s to %s", update.Path, update.Next)
 	if err := t.commit(commitMessage); err != nil {
@@ -161,7 +164,7 @@ func (t *SingleTreeRepo) Push(ctx context.Context, update gomod.Update) error {
 	return nil
 }
 
-func (t *SingleTreeRepo) commit(message string) error {
+func (t *GitRepo) commit(message string) error {
 	when := time.Now()
 	if err := worktreeAddAll(t.wt); err != nil {
 		return err
@@ -203,7 +206,7 @@ func worktreeAddAll(wt *git.Worktree) error {
 	return nil
 }
 
-func (t *SingleTreeRepo) push(ctx context.Context) error {
+func (t *GitRepo) push(ctx context.Context) error {
 	// go-git supports Push, but not the [http "https://github.com/"] .gitconfig directive that actions/checkout uses for auth
 	// we could extract from u.repo.Config().Raw, but who are we trying to impress?
 	cmd := exec.CommandContext(ctx, "git", "push", "-f")
@@ -212,27 +215,4 @@ func (t *SingleTreeRepo) push(ctx context.Context) error {
 		return fmt.Errorf("pushing: %w", err)
 	}
 	return nil
-}
-
-func ensureBranchExists(repo *git.Repository, branch string) (*plumbing.Reference, error) {
-	refName := plumbing.NewBranchReferenceName(branch)
-	ref, err := repo.Reference(refName, true)
-	if err != nil {
-		if err != plumbing.ErrReferenceNotFound {
-			return nil, fmt.Errorf("querying branch ref: %w", err)
-		}
-
-		// If the ref doesn't exist, what about on the default remote?
-		remoteRef, err := repo.Reference(plumbing.NewRemoteReferenceName(RemoteName, branch), true)
-		if err != nil {
-			return nil, fmt.Errorf("querying remote remote branch ref: %w", err)
-		}
-
-		// Found on remote, store as base branch for later consistency:
-		ref = plumbing.NewHashReference(refName, remoteRef.Hash())
-		if err := repo.Storer.SetReference(ref); err != nil {
-			return nil, fmt.Errorf("storing reference: %w", err)
-		}
-	}
-	return ref, nil
 }

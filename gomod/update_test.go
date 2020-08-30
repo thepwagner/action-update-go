@@ -1,7 +1,6 @@
 package gomod_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,20 +8,29 @@ import (
 )
 
 func TestUpdate_Major(t *testing.T) {
-	cases := []struct {
-		v1, v2   string
-		expected bool
+	cases := map[string]struct {
+		major    []string
+		notMajor []string
 	}{
-		{v1: "v1", v2: "v1", expected: false},
-		{v1: "v1.0", v2: "v1.1", expected: false},
-		{v1: "v1", v2: "v2", expected: true},
-		{v1: "v2", v2: "v1", expected: true},
+		"v1": {
+			major:    []string{"v2", "v2.1.1"},
+			notMajor: []string{"v1", "v1.1"},
+		},
+		"v2": {
+			major: []string{"v1", "v3"},
+		},
 	}
 
-	for _, c := range cases {
-		t.Run(fmt.Sprintf("%s %s", c.v1, c.v2), func(t *testing.T) {
-			u := gomod.Update{Previous: c.v1, Next: c.v2}
-			assert.Equal(t, c.expected, u.Major())
+	for baseVersion, c := range cases {
+		t.Run(baseVersion, func(t *testing.T) {
+			for _, v := range c.major {
+				u := gomod.Update{Previous: baseVersion, Next: v}
+				assert.True(t, u.Major(), v)
+			}
+			for _, v := range c.notMajor {
+				u := gomod.Update{Previous: baseVersion, Next: v}
+				assert.False(t, u.Major(), v)
+			}
 		})
 	}
 }

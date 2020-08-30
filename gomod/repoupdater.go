@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfile"
-	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/oauth2"
 )
 
 const (
@@ -18,38 +15,31 @@ const (
 	VendorModulesFn = "vendor/modules.txt"
 )
 
+// RepoUpdater creates update branches for all potential updates to a Go module.
 type RepoUpdater struct {
 	repo       Repo
 	branchName UpdateBranchNamer
 	updater    *Updater
-
-	github   *github.Client
-	owner    string
-	repoName string
-
-	Tidy bool
 }
 
-func NewRepoUpdater(repo Repo, ghRepo, token string) (*RepoUpdater, error) {
+// Repo interfaces with (probably Git) repository
+type Repo interface {
+	// Root returns the working tree root.
+	Root() string
+	// SetBranch changes to an existing branch.
+	SetBranch(branch string) error
+	// NewBranch creates and changes to a new branch.
+	NewBranch(baseBranch, branch string) error
+	// Push snapshots and publishes (commit. then push, create PR, tweet, whatever).
+	Push(ctx context.Context, update Update) error
+}
+
+func NewRepoUpdater(repo Repo) (*RepoUpdater, error) {
 	u := &RepoUpdater{
 		repo:       repo,
 		branchName: DefaultUpdateBranchNamer,
-		Tidy:       true,
+		updater:    &Updater{Tidy: true},
 	}
-
-	if token != "" {
-		ghRepoSplit := strings.Split(ghRepo, "/")
-		if len(ghRepoSplit) != 2 {
-			return nil, fmt.Errorf("expected repo in OWNER/NAME format")
-		}
-		u.owner = ghRepoSplit[0]
-		u.repoName = ghRepoSplit[1]
-
-		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-		tc := oauth2.NewClient(context.Background(), ts)
-		u.github = github.NewClient(tc)
-	}
-
 	return u, nil
 }
 
@@ -102,10 +92,6 @@ func (u *RepoUpdater) parseGoMod() (*modfile.File, error) {
 	return parsed, nil
 }
 
-func pathMajorVersion(pkg string, version int64) string {
-	return fmt.Sprintf("%s/v%d", pkg[:strings.LastIndex(pkg, "/")], version)
-}
-
 func (u *RepoUpdater) update(ctx context.Context, baseBranch string, update Update) error {
 	targetBranch := u.branchName(baseBranch, update)
 	if err := u.repo.NewBranch(baseBranch, targetBranch); err != nil {
@@ -119,62 +105,6 @@ func (u *RepoUpdater) update(ctx context.Context, baseBranch string, update Upda
 	if err := u.repo.Push(ctx, update); err != nil {
 		return fmt.Errorf("pushing update: %w", err)
 	}
-	
+
 	return nil
 }
-
-//	if err := u.createPR(ctx, update); err != nil {
-//		return err
-//	}
-//	return nil
-//}
-//
-
-//
-//func (u *RepoUpdater) createPR(ctx context.Context, update Update) error {
-//	if u.github == nil {
-//		return nil
-//	}
-//
-//	// TODO: dependency inject this
-//	title := fmt.Sprintf("Update %s from %s to %s", update.Path, update.Previous, update.Next)
-//	var body strings.Builder
-//	_, _ = fmt.Fprintln(&body, "you're welcome")
-//	_, _ = fmt.Fprintln(&body, "")
-//	_, _ = fmt.Fprintln(&body, "TODO: release notes or something?")
-//	_, _ = fmt.Fprintln(&body, "")
-//	_, _ = fmt.Fprintln(&body, "```json")
-//	major := semver.Major(update.Previous) != semver.Major(update.Next)
-//	minor := !major && semver.MajorMinor(update.Previous) != semver.MajorMinor(update.Next)
-//	details := struct {
-//		Major bool `json:"Major"`
-//		Minor bool `json:"minor"`
-//		Patch bool `json:"patch"`
-//	}{
-//		Major: major,
-//		Minor: minor,
-//		Patch: !major && !minor,
-//	}
-//	encoder := json.NewEncoder(&body)
-//	encoder.SetIndent("", "  ")
-//	if err := encoder.Encode(&details); err != nil {
-//		return err
-//	}
-//	_, _ = fmt.Fprintln(&body, "")
-//	_, _ = fmt.Fprintln(&body, "```")
-//
-//	res, _, err := u.github.PullRequests.Create(ctx, u.owner, u.repoName, &github.NewPullRequest{
-//		Title: &title,
-//		Body:  github.String(body.String()),
-//		Base:  github.String(update.Base.Name().Short()),
-//		Head:  github.String(update.BranchName()),
-//	})
-//	if err != nil {
-//		if strings.Contains(err.Error(), "pull request already exists") {
-//			return nil
-//		}
-//		return fmt.Errorf("creating PR: %w", err)
-//	}
-//	logrus.WithField("pr_id", res.ID).Info("created pull request")
-//	return nil
-//}
