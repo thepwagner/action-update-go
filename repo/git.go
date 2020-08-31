@@ -255,3 +255,7 @@ func (t *GitRepo) Updates(_ context.Context) (gomod.UpdatesByBranch, error) {
 	}
 	return ret, nil
 }
+
+func (t *GitRepo) Parse(b string) (string, *gomod.Update) {
+	return t.branchNamer.Parse(b)
+}

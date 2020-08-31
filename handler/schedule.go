@@ -11,33 +11,14 @@ import (
 )
 
 func Schedule(ctx context.Context, env *cmd.Environment, _ interface{}) error {
-	repo, err := git.PlainOpen(".")
-	if err != nil {
-		return err
-	}
-	gitRepo, err := gitrepo.NewGitRepo(repo)
+	repo, updater, err := getRepoUpdater(env)
 	if err != nil {
 		return err
 	}
 
-	var modRepo gomod.Repo
-	if env.GitHubRepository != "" && env.GitHubToken != "" {
-		modRepo, err = gitrepo.NewGitHubRepo(gitRepo, env.GitHubRepository, env.GitHubToken)
-		if err != nil {
-			return err
-		}
-	} else {
-		modRepo = gitRepo
-	}
-
-	updater, err := gomod.NewRepoUpdater(modRepo)
-	if err != nil {
-		return err
-	}
-
-	initialBranch := gitRepo.Branch()
+	initialBranch := repo.Branch()
 	defer func() {
-		if err := gitRepo.SetBranch(initialBranch); err != nil {
+		if err := repo.SetBranch(initialBranch); err != nil {
 			logrus.WithError(err).Warn("error reverting to initial branch")
 		}
 	}()
@@ -58,3 +39,30 @@ func Schedule(ctx context.Context, env *cmd.Environment, _ interface{}) error {
 }
 
 var _ Handler = Schedule
+
+func getRepoUpdater(env *cmd.Environment) (gomod.Repo, *gomod.RepoUpdater, error) {
+	repo, err := git.PlainOpen(".")
+	if err != nil {
+		return nil, nil, err
+	}
+	gitRepo, err := gitrepo.NewGitRepo(repo)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var modRepo gomod.Repo
+	if env.GitHubRepository != "" && env.GitHubToken != "" {
+		modRepo, err = gitrepo.NewGitHubRepo(gitRepo, env.GitHubRepository, env.GitHubToken)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		modRepo = gitRepo
+	}
+
+	updater, err := gomod.NewRepoUpdater(modRepo)
+	if err != nil {
+		return nil, nil, err
+	}
+	return gitRepo, updater, nil
+}

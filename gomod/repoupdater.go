@@ -30,11 +30,15 @@ type Repo interface {
 	SetBranch(branch string) error
 	// NewBranch creates and changes to a new branch.
 	NewBranch(baseBranch string, update Update) error
+	// Branch returns the current branch.
+	Branch() string
 	// Push snapshots the working tree after an update has been applied, and "publishes".
 	// This is branch to commit. Publishing may mean push, create a PR, tweet the maintainer, whatever.
 	Push(context.Context, Update) error
 	// OpenUpdates returns any existing updates in the repo.
 	Updates(context.Context) (UpdatesByBranch, error)
+	// Parse matches a branch name that may be an update. Nil if not an update branch
+	Parse(string) (baseBranch string, update *Update)
 }
 
 // NewRepoUpdater creates RepoUpdater.
@@ -44,6 +48,22 @@ func NewRepoUpdater(repo Repo) (*RepoUpdater, error) {
 		updater: &Updater{Tidy: true},
 	}
 	return u, nil
+}
+
+func (u *RepoUpdater) Update(ctx context.Context, baseBranch string, update Update) error {
+	if err := u.repo.NewBranch(baseBranch, update); err != nil {
+		return fmt.Errorf("switching to target branch: %w", err)
+	}
+
+	if err := u.updater.ApplyUpdate(ctx, u.repo.Root(), update); err != nil {
+		return fmt.Errorf("applying update: %w", err)
+	}
+
+	if err := u.repo.Push(ctx, update); err != nil {
+		return fmt.Errorf("pushing update: %w", err)
+	}
+
+	return nil
 }
 
 // UpdateAll creates updates from a base branch in the Repo.
@@ -83,7 +103,7 @@ func (u *RepoUpdater) UpdateAll(ctx context.Context, branches ...string) error {
 				continue
 			}
 
-			if err := u.update(ctx, branch, *update); err != nil {
+			if err := u.Update(ctx, branch, *update); err != nil {
 				return fmt.Errorf("updating %q: %w", update.Path, err)
 			}
 		}
@@ -101,20 +121,4 @@ func (u *RepoUpdater) parseGoMod() (*modfile.File, error) {
 		return nil, fmt.Errorf("parsing go.mod: %w", err)
 	}
 	return parsed, nil
-}
-
-func (u *RepoUpdater) update(ctx context.Context, baseBranch string, update Update) error {
-	if err := u.repo.NewBranch(baseBranch, update); err != nil {
-		return fmt.Errorf("switching to target branch: %w", err)
-	}
-
-	if err := u.updater.ApplyUpdate(ctx, u.repo.Root(), update); err != nil {
-		return fmt.Errorf("applying update: %w", err)
-	}
-
-	if err := u.repo.Push(ctx, update); err != nil {
-		return fmt.Errorf("pushing update: %w", err)
-	}
-
-	return nil
 }

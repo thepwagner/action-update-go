@@ -13,7 +13,7 @@ import (
 
 // GitHubRepo wraps GitRepo to create a GitHub PR for the pushed branch.
 type GitHubRepo struct {
-	repo *GitRepo
+	repo gomod.Repo
 
 	content  PullRequestContentFiller
 	github   *github.Client
@@ -42,9 +42,11 @@ func NewGitHubRepo(repo *GitRepo, repoNameOwner, token string) (*GitHubRepo, err
 	}, nil
 }
 
-func (g GitHubRepo) Root() string                  { return g.repo.Root() }
-func (g GitHubRepo) SetBranch(branch string) error { return g.repo.SetBranch(branch) }
-func (g GitHubRepo) NewBranch(baseBranch string, update gomod.Update) error {
+func (g *GitHubRepo) Root() string                                { return g.repo.Root() }
+func (g *GitHubRepo) Branch() string                              { return g.repo.Branch() }
+func (g *GitHubRepo) SetBranch(branch string) error               { return g.repo.SetBranch(branch) }
+func (g *GitHubRepo) Parse(branch string) (string, *gomod.Update) { return g.repo.Parse(branch) }
+func (g *GitHubRepo) NewBranch(baseBranch string, update gomod.Update) error {
 	return g.repo.NewBranch(baseBranch, update)
 }
 
@@ -70,7 +72,7 @@ func (g *GitHubRepo) addUpdatesFromPR(ctx context.Context, updates gomod.Updates
 	}
 
 	for _, pr := range prList {
-		base, update := g.repo.branchNamer.Parse(*pr.Head.Ref)
+		base, update := g.repo.Parse(*pr.Head.Ref)
 		if update == nil {
 			continue
 		}
@@ -110,7 +112,7 @@ func (g *GitHubRepo) createPR(ctx context.Context, update gomod.Update) error {
 	}
 
 	branch := g.repo.Branch()
-	baseBranch, _ := g.repo.branchNamer.Parse(branch)
+	baseBranch, _ := g.repo.Parse(branch)
 	pullRequest, _, err := g.github.PullRequests.Create(ctx, g.owner, g.repoName, &github.NewPullRequest{
 		Title: &title,
 		Body:  &body,
