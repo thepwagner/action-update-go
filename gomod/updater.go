@@ -56,7 +56,7 @@ func updateGoMod(root string, update Update) error {
 		return fmt.Errorf("parsing go.mod: %w", err)
 	}
 
-	if update.Major() {
+	if update.Major() && pathMajorVersionRE.MatchString(update.Path) {
 		// Replace foo.bar/v2 with foo.bar/v3:
 		if err := goMod.DropRequire(update.Path); err != nil {
 			return fmt.Errorf("dropping requirement: %w", err)
