@@ -33,6 +33,16 @@ func (u *Updater) ApplyUpdate(ctx context.Context, root string, update Update) e
 		}
 	}
 
+	if closer, err := ensureGoFileInRoot(root); err != nil {
+		return err
+	} else if closer != nil {
+		defer func() {
+			if err := closer(); err != nil {
+				logrus.WithError(err).Warn("cleaning up temp go file")
+			}
+		}()
+	}
+
 	if err := u.updateGoSum(ctx, root); err != nil {
 		return err
 	}
@@ -43,6 +53,32 @@ func (u *Updater) ApplyUpdate(ctx context.Context, root string, update Update) e
 		}
 	}
 	return nil
+}
+
+var fakeMainFile = []byte(`package main
+
+func main() {}
+`)
+
+func ensureGoFileInRoot(root string) (func() error, error) {
+	fileInfos, err := ioutil.ReadDir(root)
+	if err != nil {
+		return nil, fmt.Errorf("reading root dir: %w", err)
+	}
+	for _, fi := range fileInfos {
+		if filepath.Ext(fi.Name()) == ".go" {
+			return nil, nil
+		}
+	}
+
+	// There is no .go file in the root, but having one makes `go get` easier.
+	fakeMain := filepath.Join(root, "main.go")
+	if err := ioutil.WriteFile(fakeMain, fakeMainFile, 0600); err != nil {
+		return nil, fmt.Errorf("writing fake go file: %w", err)
+	}
+	return func() error {
+		return os.Remove(fakeMain)
+	}, nil
 }
 
 func updateGoMod(root string, update Update) error {
