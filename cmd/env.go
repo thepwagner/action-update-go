@@ -57,6 +57,10 @@ func (e *Environment) Branches() (branches []string) {
 }
 
 func (e *Environment) LogLevel() logrus.Level {
+	if e.InputLogLevel == "" {
+		return logrus.InfoLevel
+	}
+
 	lvl, err := logrus.ParseLevel(e.InputLogLevel)
 	if err != nil {
 		logrus.WithError(err).Warn("could not parse log level")
