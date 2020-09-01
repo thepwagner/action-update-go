@@ -94,9 +94,10 @@ func (u *RepoUpdater) UpdateAll(ctx context.Context, branches ...string) error {
 			ExistingUpdates: updatesByBranch[branch],
 		}
 		for _, req := range goMod.Require {
+			reqLog := log.WithField("path", req.Mod.Path)
 			update, err := checker.CheckForModuleUpdates(ctx, req)
 			if err != nil {
-				log.WithError(err).Warn("error checking for updates")
+				reqLog.WithError(err).Warn("error checking for updates")
 				continue
 			}
 			if update == nil {
@@ -104,7 +105,8 @@ func (u *RepoUpdater) UpdateAll(ctx context.Context, branches ...string) error {
 			}
 
 			if err := u.Update(ctx, branch, *update); err != nil {
-				return fmt.Errorf("updating %q: %w", update.Path, err)
+				reqLog.WithError(err).Warn("error applying update")
+				continue
 			}
 		}
 	}
