@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -178,15 +179,28 @@ func (u *Updater) updateGoSum(ctx context.Context, root string) error {
 func rootGoCmd(ctx context.Context, root string, args ...string) error {
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = root
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		log := logrus.StandardLogger().WriterLevel(logrus.DebugLevel)
-		defer func() { _ = log.Close() }()
-		cmd.Stdout = log
-		cmd.Stderr = log
-		// echo command before output:
-		_, _ = fmt.Fprintln(log, append([]string{"go"}, args...))
+
+	// Capture output to buffer:
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err := cmd.Run()
+
+	var out io.WriteCloser
+	if err != nil {
+		out = logrus.StandardLogger().WriterLevel(logrus.ErrorLevel)
+	} else if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		out = logrus.StandardLogger().WriterLevel(logrus.DebugLevel)
 	}
-	return cmd.Run()
+
+	if out != nil {
+		defer func() { _ = out.Close() }()
+		// echo command before output:
+		_, _ = fmt.Fprintln(out, append([]string{"go"}, args...))
+		_, _ = out.Write(buf.Bytes())
+	}
+
+	return err
 }
 
 func hasVendor(root string) bool {
