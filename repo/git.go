@@ -111,7 +111,10 @@ func (t *GitRepo) SetBranch(branch string) error {
 }
 
 func (t *GitRepo) setBranch(refName plumbing.ReferenceName) error {
-	err := t.wt.Checkout(&git.CheckoutOptions{Branch: refName})
+	err := t.wt.Checkout(&git.CheckoutOptions{
+		Branch: refName,
+		Force:  true,
+	})
 	if err != nil {
 		return fmt.Errorf("checking out branch: %w", err)
 	}
