@@ -15,7 +15,7 @@ import (
 type GitHubRepo struct {
 	repo gomod.Repo
 
-	prContent PullRequestContentGenerator
+	prContent PullRequestContent
 	github    *github.Client
 	owner     string
 	repoName  string
@@ -23,8 +23,8 @@ type GitHubRepo struct {
 
 var _ gomod.Repo = (*GitHubRepo)(nil)
 
-type PullRequestContentGenerator interface {
-	Generate(gomod.Update) (title, body string, err error)
+type PullRequestContent interface {
+	Generate(context.Context, gomod.Update) (title, body string, err error)
 }
 
 func NewGitHubRepo(repo *GitRepo, repoNameOwner, token string) (*GitHubRepo, error) {
@@ -33,16 +33,21 @@ func NewGitHubRepo(repo *GitRepo, repoNameOwner, token string) (*GitHubRepo, err
 		return nil, fmt.Errorf("expected repo in OWNER/NAME format")
 	}
 
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	tc := oauth2.NewClient(context.Background(), ts)
-
+	ghClient := NewGitHubClient(token)
 	return &GitHubRepo{
 		repo:      repo,
 		owner:     ghRepoSplit[0],
 		repoName:  ghRepoSplit[1],
-		github:    github.NewClient(tc),
-		prContent: NewDefaultPullRequestContentGenerator(),
+		github:    ghClient,
+		prContent: NewGitHubPullRequestContent(ghClient),
 	}, nil
+}
+
+func NewGitHubClient(token string) *github.Client {
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+	tc := oauth2.NewClient(context.Background(), ts)
+	ghClient := github.NewClient(tc)
+	return ghClient
 }
 
 func (g *GitHubRepo) Root() string                                { return g.repo.Root() }
@@ -111,7 +116,7 @@ func (g *GitHubRepo) addUpdatesFromPR(ctx context.Context, updates gomod.Updates
 }
 
 func (g *GitHubRepo) createPR(ctx context.Context, update gomod.Update) error {
-	title, body, err := g.prContent.Generate(update)
+	title, body, err := g.prContent.Generate(ctx, update)
 	if err != nil {
 		return fmt.Errorf("generating PR prContent: %w", err)
 	}

@@ -20,10 +20,7 @@ func TestNewGitHubRepo(t *testing.T) {
 }
 
 func TestGitHubRepo_Updates(t *testing.T) {
-	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
-		t.Skip("set GITHUB_TOKEN")
-	}
+	token := tokenOrSkip(t)
 
 	gr := initGitRepo(t, plumbing.NewBranchReferenceName(branchName))
 	gh, err := repo.NewGitHubRepo(gr, "thepwagner/action-update-go", token)
@@ -36,4 +33,12 @@ func TestGitHubRepo_Updates(t *testing.T) {
 	mainUpdates := updates["main"]
 	assert.Len(t, mainUpdates.Open, 0)
 	assert.Len(t, mainUpdates.Closed, 4)
+}
+
+func tokenOrSkip(t *testing.T) string {
+	token := os.Getenv("GITHUB_TOKEN")
+	if token == "" {
+		t.Skip("set GITHUB_TOKEN")
+	}
+	return token
 }
