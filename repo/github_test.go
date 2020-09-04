@@ -34,6 +34,6 @@ func TestGitHubRepo_Updates(t *testing.T) {
 	assert.Len(t, updates, 3)
 
 	mainUpdates := updates["main"]
-	assert.Len(t, mainUpdates.Open, 2)
+	assert.Len(t, mainUpdates.Open, 0)
 	assert.Len(t, mainUpdates.Closed, 4)
 }
