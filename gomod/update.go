@@ -14,9 +14,9 @@ type Update struct {
 	Next string
 }
 
-// Major returns true if the update changes major version
-func (u Update) Major() bool {
-	return semver.Major(u.Previous) != semver.Major(u.Next)
+// MajorPkg returns true if the update changes major version
+func (u Update) MajorPkg() bool {
+	return semver.Major(u.Previous) != semver.Major(u.Next) && pathMajorVersionRE.MatchString(u.Path)
 }
 
 type UpdatesByBranch map[string]Updates

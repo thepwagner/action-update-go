@@ -1,6 +1,7 @@
 package gomod_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,13 +24,31 @@ func TestUpdate_Major(t *testing.T) {
 
 	for baseVersion, c := range cases {
 		t.Run(baseVersion, func(t *testing.T) {
+			updatePath := fmt.Sprintf("github.com/foo/bar/%s", baseVersion)
 			for _, v := range c.major {
-				u := gomod.Update{Previous: baseVersion, Next: v}
-				assert.True(t, u.Major(), v)
+				u := gomod.Update{
+					Path:     updatePath,
+					Previous: baseVersion,
+					Next:     v,
+				}
+				assert.True(t, u.MajorPkg(), v)
+			}
+
+			for _, v := range c.major {
+				u := gomod.Update{
+					Path:     "github.com/foo/bar",
+					Previous: baseVersion,
+					Next:     v,
+				}
+				assert.False(t, u.MajorPkg(), v)
 			}
 			for _, v := range c.notMajor {
-				u := gomod.Update{Previous: baseVersion, Next: v}
-				assert.False(t, u.Major(), v)
+				u := gomod.Update{
+					Path:     updatePath,
+					Previous: baseVersion,
+					Next:     v,
+				}
+				assert.False(t, u.MajorPkg(), v)
 			}
 		})
 	}
