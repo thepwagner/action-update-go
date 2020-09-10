@@ -1,5 +1,6 @@
 name: Update Go
 description: Update Go dependencies
+author: 'thepwagner'
 inputs:
   branches:
     description: 'Branches to update'
