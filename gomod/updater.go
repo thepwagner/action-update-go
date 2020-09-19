@@ -19,6 +19,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	GoModFn         = "go.mod"
+	GoSumFn         = "go.sum"
+	VendorModulesFn = "vendor/modules.txt"
+)
+
 type Updater struct {
 	Tidy bool
 }

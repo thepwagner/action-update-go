@@ -13,7 +13,7 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	copy2 "github.com/otiai10/copy"
+	"github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/gomod"
@@ -42,54 +42,6 @@ func TestUpdater_UpdateAll_Simple(t *testing.T) {
 	// No needless vendoring:
 	_, err := wt.Filesystem.Stat(gomod.VendorModulesFn)
 	assert.True(t, os.IsNotExist(err))
-}
-
-func TestUpdater_UpdateAll_Vendor(t *testing.T) {
-	// Update and interrogate the logrus branch:
-	r := updateAllInFixture(t, "vendor")
-	branches, wt := checkoutBranchWithPrefix(t, r, "action-update-go/master/github.com/sirupsen/logrus/")
-
-	// We expect 1 new branches: logrus
-	assert.Len(t, branches, baseBranchCount+1)
-
-	// Logrus is upgraded:
-	goMod := worktreeFile(t, wt, gomod.GoModFn)
-	assert.NotContains(t, goMod, "github.com/sirupsen/logrus v1.5.0", "logrus not updated")
-	assert.Contains(t, goMod, "github.com/sirupsen/logrus")
-
-	modulesTxt := worktreeFile(t, wt, gomod.VendorModulesFn)
-	assert.NotContains(t, modulesTxt, "github.com/sirupsen/logrus v1.5.0", "logrus not vendored")
-}
-
-func TestUpdater_UpdateAll_Major(t *testing.T) {
-	// Update and interrogate the env branch:
-	r := updateAllInFixture(t, "major")
-	branches, wt := checkoutBranchWithPrefix(t, r, "action-update-go/master/github.com/caarlos0/env/")
-
-	// We expect 1 new branches: env
-	assert.Len(t, branches, baseBranchCount+1)
-
-	// env is upgraded:
-	goMod := worktreeFile(t, wt, gomod.GoModFn)
-	assert.NotContains(t, goMod, "github.com/caarlos0/env/v5", "env not updated")
-	assert.Contains(t, goMod, "github.com/caarlos0/env/v", "env removed")
-}
-
-func TestUpdater_UpdateAll_NotInRoot(t *testing.T) {
-	// Update and interrogate the pkg/errors branch:
-	r := updateAllInFixture(t, "notinroot")
-	branches, wt := checkoutBranchWithPrefix(t, r, "action-update-go/master/github.com/pkg/errors/")
-
-	// We expect 1 new branches: pkg/errors
-	assert.Len(t, branches, baseBranchCount+1)
-
-	// pkg/errors is upgraded:
-	goMod := worktreeFile(t, wt, gomod.GoModFn)
-	assert.NotContains(t, goMod, "github.com/pkg/errors v0.8.0", "pkg/errors not updated")
-	assert.Contains(t, goMod, "github.com/pkg/errors", "pkg/errors removed")
-
-	_, err := wt.Filesystem.Stat("main.go")
-	assert.True(t, os.IsNotExist(err), "temp go file leaked into commit")
 }
 
 func TestUpdater_UpdateAll_MultiBranch(t *testing.T) {
@@ -129,7 +81,7 @@ func fixtureRepos(t *testing.T, fixture string) (upstream, downstream *git.Repos
 	require.NoError(t, err)
 
 	// Fill with files from the fixture:
-	err = copy2.Copy(fmt.Sprintf("../fixtures/%s", fixture), upstreamRepo)
+	err = copy.Copy(fmt.Sprintf("../fixtures/%s", fixture), upstreamRepo)
 	require.NoError(t, err)
 
 	// Add as initial commit:

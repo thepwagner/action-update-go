@@ -1,9 +1,12 @@
 package main
 
 import (
-	"github.com/sirupsen/logrus"
+	"fmt"
+
+	"github.com/pkg/errors"
 )
 
 func main() {
-	logrus.Info("")
+	err := errors.New("kaboom")
+	fmt.Println(err)
 }

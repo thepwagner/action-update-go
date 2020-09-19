@@ -10,11 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	GoModFn         = "go.mod"
-	VendorModulesFn = "vendor/modules.txt"
-)
-
 // RepoUpdater creates branches proposing all available updates for a Go module.
 type RepoUpdater struct {
 	repo    Repo
