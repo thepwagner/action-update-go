@@ -127,9 +127,12 @@ github.com/sergi/go-diff/diffmatchpatch
 # github.com/sirupsen/logrus v1.6.0
 ## explicit
 github.com/sirupsen/logrus
+# github.com/stretchr/objx v0.1.0
+github.com/stretchr/objx
 # github.com/stretchr/testify v1.6.0
 ## explicit
 github.com/stretchr/testify/assert
+github.com/stretchr/testify/mock
 github.com/stretchr/testify/require
 # github.com/xanzy/ssh-agent v0.2.1
 github.com/xanzy/ssh-agent
