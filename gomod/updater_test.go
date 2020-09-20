@@ -18,7 +18,7 @@ func updaterFromFixture(t *testing.T, fixture string, opts ...gomod.UpdaterOpt) 
 
 func tempDirFromFixture(t *testing.T, fixture string) string {
 	tempDir := t.TempDir()
-	err := deepcopy.Copy(fmt.Sprintf("../fixtures/%s", fixture), tempDir)
+	err := deepcopy.Copy(fmt.Sprintf("testdata/%s", fixture), tempDir)
 	require.NoError(t, err)
 	return tempDir
 }
