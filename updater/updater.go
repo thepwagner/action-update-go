@@ -73,55 +73,69 @@ func (u *RepoUpdater) UpdateAll(ctx context.Context, branches ...string) error {
 		return fmt.Errorf("listing open updates: %w", err)
 	}
 
+	multiBranch := len(branches) > 1
 	for _, branch := range branches {
-		// Switch to base branch:
-		if err := u.repo.SetBranch(branch); err != nil {
-			return fmt.Errorf("switch to base branch: %w", err)
+		if err := u.updateBranch(ctx, multiBranch, branch, updatesByBranch); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (u *RepoUpdater) updateBranch(ctx context.Context, multiBranch bool, branch string, updatesByBranch UpdatesByBranch) error {
+	// Switch to base branch:
+	if err := u.repo.SetBranch(branch); err != nil {
+		return fmt.Errorf("switch to base branch: %w", err)
+	}
+
+	// List dependencies while on this branch:
+	deps, err := u.updater.Dependencies(ctx)
+	if err != nil {
+		return fmt.Errorf("getting dependencies: %w", err)
+	}
+
+	var log logrus.FieldLogger
+	if multiBranch {
+		log = logrus.WithField("branch", branch)
+	} else {
+		log = logrus.StandardLogger()
+	}
+	log.WithField("deps", len(deps)).Info("parsed dependencies, checking for updates")
+
+	// Iterate dependencies, collecting updates:
+	existingUpdates := updatesByBranch[branch]
+	var updates []Update
+	for _, dep := range deps {
+		// Is an update available for this dependency?
+		depLog := log.WithField("path", dep.Path)
+		update := u.checkForUpdate(ctx, depLog, existingUpdates, dep)
+		if update == nil {
+			continue
 		}
 
-		// List dependencies while on this branch:
-		deps, err := u.updater.Dependencies(ctx)
-		if err != nil {
-			return fmt.Errorf("getting dependencies: %w", err)
-		}
-		log := logrus.WithField("branch", branch)
-		log.WithField("deps", len(deps)).Info("parsed dependencies, checking for updates")
+		// There is an update to apply
+		depLog = depLog.WithField("next_version", update.Next)
+		updates = append(updates, *update)
 
-		// Iterate dependencies, collecting updates:
-		existingUpdates := updatesByBranch[branch]
-		var updates []Update
-		for _, dep := range deps {
-			// Is an update available for this dependency?
-			depLog := log.WithField("path", dep.Path)
-			update := u.checkForUpdate(ctx, depLog, existingUpdates, dep)
-			if update == nil {
+		// When not batching, delegate to the standalone .Update() process
+		if !u.Batch {
+			if err := u.Update(ctx, branch, *update); err != nil {
+				depLog.WithError(err).Warn("error applying update")
 				continue
 			}
-
-			// There is an update to apply
-			depLog = depLog.WithField("next_version", update.Next)
-			updates = append(updates, *update)
-
-			// When not batching, delegate to the standalone .Update() process
-			if !u.Batch {
-				if err := u.Update(ctx, branch, *update); err != nil {
-					depLog.WithError(err).Warn("error applying update")
-					continue
-				}
-			}
 		}
-
-		if u.Batch {
-			if err := u.batchedUpdate(ctx, branch, updates); err != nil {
-				return err
-			}
-		}
-
-		log.WithFields(logrus.Fields{
-			"deps":    len(deps),
-			"updates": len(updates),
-		}).Info("checked for updates")
 	}
+
+	if u.Batch {
+		if err := u.batchedUpdate(ctx, branch, updates); err != nil {
+			return err
+		}
+	}
+
+	log.WithFields(logrus.Fields{
+		"deps":    len(deps),
+		"updates": len(updates),
+	}).Info("checked for updates")
 	return nil
 }
 
@@ -136,6 +150,7 @@ func (u *RepoUpdater) checkForUpdate(ctx context.Context, log logrus.FieldLogger
 	}
 
 	if existing := existing.Filter(*update); existing != "" {
+		// XXX: can we link to the conflict? (e.g. PR url)
 		log.WithFields(logrus.Fields{
 			"next_version":     update.Next,
 			"existing_version": existing,
