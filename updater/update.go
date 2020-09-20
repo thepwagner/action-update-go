@@ -1,4 +1,4 @@
-package gomod
+package updater
 
 import (
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
@@ -12,11 +12,6 @@ type Update struct {
 	Previous string
 	// Next module version
 	Next string
-}
-
-// MajorPkg returns true if the update changes major version
-func (u Update) MajorPkg() bool {
-	return semver.Major(u.Previous) != semver.Major(u.Next) && pathMajorVersionRE.MatchString(u.Path)
 }
 
 type UpdatesByBranch map[string]Updates
@@ -49,15 +44,25 @@ func addUpdate(existing []Update, update Update) []Update {
 	return append(existing, update)
 }
 
-func (u Updates) OpenUpdate(update *Update) string {
+func (u Updates) OpenUpdate(update Update) string {
 	return containsUpdate(u.Open, update)
 }
 
-func (u Updates) ClosedUpdate(update *Update) string {
+func (u Updates) ClosedUpdate(update Update) string {
 	return containsUpdate(u.Closed, update)
 }
 
-func containsUpdate(updateList []Update, update *Update) string {
+func (u Updates) Filter(update Update) string {
+	if open := containsUpdate(u.Open, update); open != "" {
+		return open
+	}
+	if closed := containsUpdate(u.Closed, update); closed != "" {
+		return closed
+	}
+	return ""
+}
+
+func containsUpdate(updateList []Update, update Update) string {
 	for _, u := range updateList {
 		if u.Path != update.Path {
 			continue

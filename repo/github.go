@@ -7,13 +7,13 @@ import (
 
 	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
-	"github.com/thepwagner/action-update-go/gomod"
+	"github.com/thepwagner/action-update-go/updater"
 	"golang.org/x/oauth2"
 )
 
 // GitHubRepo wraps GitRepo to create a GitHub PR for the pushed branch.
 type GitHubRepo struct {
-	repo gomod.Repo
+	repo updater.Repo
 
 	prContent PullRequestContent
 	github    *github.Client
@@ -21,10 +21,10 @@ type GitHubRepo struct {
 	repoName  string
 }
 
-var _ gomod.Repo = (*GitHubRepo)(nil)
+var _ updater.Repo = (*GitHubRepo)(nil)
 
 type PullRequestContent interface {
-	Generate(context.Context, gomod.Update) (title, body string, err error)
+	Generate(context.Context, updater.Update) (title, body string, err error)
 }
 
 func NewGitHubRepo(repo *GitRepo, repoNameOwner, token string) (*GitHubRepo, error) {
@@ -50,16 +50,16 @@ func NewGitHubClient(token string) *github.Client {
 	return ghClient
 }
 
-func (g *GitHubRepo) Root() string                                { return g.repo.Root() }
-func (g *GitHubRepo) Branch() string                              { return g.repo.Branch() }
-func (g *GitHubRepo) SetBranch(branch string) error               { return g.repo.SetBranch(branch) }
-func (g *GitHubRepo) Parse(branch string) (string, *gomod.Update) { return g.repo.Parse(branch) }
-func (g *GitHubRepo) NewBranch(baseBranch string, update gomod.Update) error {
+func (g *GitHubRepo) Root() string                                  { return g.repo.Root() }
+func (g *GitHubRepo) Branch() string                                { return g.repo.Branch() }
+func (g *GitHubRepo) SetBranch(branch string) error                 { return g.repo.SetBranch(branch) }
+func (g *GitHubRepo) Parse(branch string) (string, *updater.Update) { return g.repo.Parse(branch) }
+func (g *GitHubRepo) NewBranch(baseBranch string, update updater.Update) error {
 	return g.repo.NewBranch(baseBranch, update)
 }
 
 // Push follows the git push with opening a pull request
-func (g *GitHubRepo) Push(ctx context.Context, update gomod.Update) error {
+func (g *GitHubRepo) Push(ctx context.Context, update updater.Update) error {
 	if err := g.repo.Push(ctx, update); err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func (g *GitHubRepo) Push(ctx context.Context, update gomod.Update) error {
 }
 
 // Updates amends with branches found in open PRs
-func (g *GitHubRepo) Updates(ctx context.Context) (gomod.UpdatesByBranch, error) {
+func (g *GitHubRepo) Updates(ctx context.Context) (updater.UpdatesByBranch, error) {
 	updates, err := g.repo.Updates(ctx)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (g *GitHubRepo) Updates(ctx context.Context) (gomod.UpdatesByBranch, error)
 	return updates, nil
 }
 
-func (g *GitHubRepo) addUpdatesFromPR(ctx context.Context, updates gomod.UpdatesByBranch) error {
+func (g *GitHubRepo) addUpdatesFromPR(ctx context.Context, updates updater.UpdatesByBranch) error {
 	prList, _, err := g.github.PullRequests.List(ctx, g.owner, g.repoName, &github.PullRequestListOptions{
 		State: "all",
 	})
@@ -115,7 +115,7 @@ func (g *GitHubRepo) addUpdatesFromPR(ctx context.Context, updates gomod.Updates
 	return nil
 }
 
-func (g *GitHubRepo) createPR(ctx context.Context, update gomod.Update) error {
+func (g *GitHubRepo) createPR(ctx context.Context, update updater.Update) error {
 	title, body, err := g.prContent.Generate(ctx, update)
 	if err != nil {
 		return fmt.Errorf("generating PR prContent: %w", err)

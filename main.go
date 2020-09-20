@@ -8,11 +8,10 @@ import (
 )
 
 var handlers = HandlersByEventName{
-	"issue_comment":                  handler.IssueComment,
-	"pull_request":                   handler.PullRequest,
-	"repository_vulnerability_alert": handler.RepositoryVulnerabilityAlert,
-	"schedule":                       handler.Schedule,
-	"workflow_dispatch":              handler.Schedule,
+	"issue_comment":     handler.IssueComment,
+	"pull_request":      handler.PullRequest,
+	"schedule":          handler.Schedule,
+	"workflow_dispatch": handler.Schedule,
 }
 
 func main() {

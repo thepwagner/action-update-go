@@ -1,4 +1,4 @@
-package update
+package updater
 
 import (
 	"context"
@@ -22,6 +22,7 @@ type Repo interface {
 	// SetBranch changes to an existing branch.
 	SetBranch(branch string) error
 	// NewBranch creates and changes to a new branch.
+	// FIXME: branch naming should be done by Updater, not Repo
 	NewBranch(baseBranch string, update Update) error
 	// Branch returns the current branch.
 	Branch() string
@@ -138,7 +139,7 @@ func (u *RepoUpdater) checkForUpdate(ctx context.Context, log logrus.FieldLogger
 		log.WithFields(logrus.Fields{
 			"next_version":     update.Next,
 			"existing_version": existing,
-		}).Debug("existing version")
+		}).Info("filtering existing version")
 		return nil
 	}
 	return update
