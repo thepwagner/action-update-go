@@ -1,4 +1,4 @@
-package docker_test
+package dockerurl_test
 
 import (
 	"fmt"
@@ -6,13 +6,13 @@ import (
 
 	deepcopy "github.com/otiai10/copy"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update-go/docker"
+	"github.com/thepwagner/action-update-go/dockerurl"
 	"github.com/thepwagner/action-update-go/updater"
 )
 
 func updaterFromFixture(t *testing.T, fixture string) updater.Updater {
 	tempDir := tempDirFromFixture(t, fixture)
-	return docker.NewUpdater(tempDir)
+	return dockerurl.NewUpdater(tempDir)
 }
 
 func tempDirFromFixture(t *testing.T, fixture string) string {

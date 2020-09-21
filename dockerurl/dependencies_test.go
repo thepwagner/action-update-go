@@ -1,4 +1,4 @@
-package docker_test
+package dockerurl_test
 
 import (
 	"testing"
@@ -10,12 +10,7 @@ import (
 func TestUpdater_Dependencies(t *testing.T) {
 	cases := map[string][]updater.Dependency{
 		"simple": {
-			{Path: "alpine", Version: "3.11.0"},
-		},
-		"buildarg": {
-			{Path: "redis", Version: "6.0.0-alpine"},
-			{Path: "redis", Version: "6.0.0-alpine"},
-			{Path: "alpine", Version: "3.11.0"},
+			{Path: "https://github.com/containerd/containerd/releases", Version: "v1.4.0"},
 		},
 	}
 	updatertest.DependenciesFixtures(t, updaterFromFixture, cases)
