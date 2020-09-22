@@ -31,7 +31,7 @@ func (u *Updater) extractDockerfile(parsed *parser.Result) ([]updater.Dependency
 				name := ghReleaseMatch[2]
 				vers := ghReleaseMatch[3]
 				deps = append(deps, updater.Dependency{
-					Path:    fmt.Sprintf("https://github.com/%s/%s/releases", repo, name),
+					Path:    fmt.Sprintf("github.com/%s/%s/releases", repo, name),
 					Version: vers,
 				})
 			}
