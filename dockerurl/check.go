@@ -38,7 +38,7 @@ func (u *Updater) listGitHubReleases(ctx context.Context, dependency updater.Dep
 	pathSplit := strings.SplitN(dependency.Path, "/", 4)
 	repo := pathSplit[1]
 	name := pathSplit[2]
-	releases, _, err := u.github.ListReleases(ctx, repo, name, &github.ListOptions{PerPage: 100})
+	releases, _, err := u.ghRepos.ListReleases(ctx, repo, name, &github.ListOptions{PerPage: 100})
 	if err != nil {
 		return nil, fmt.Errorf("querying for releases: %w", err)
 	}

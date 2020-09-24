@@ -2,14 +2,15 @@ package dockerurl
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/google/go-github/v32/github"
 	"github.com/thepwagner/action-update-go/updater"
 )
 
 type Updater struct {
-	root   string
-	github repoClient
+	root    string
+	ghRepos repoClient
 }
 
 type repoClient interface {
@@ -18,8 +19,27 @@ type repoClient interface {
 
 var _ updater.Updater = (*Updater)(nil)
 
-func NewUpdater(root string, gh *github.Client) *Updater {
-	return &Updater{root: root, github: gh.Repositories}
+type UpdaterOpt func(*Updater)
+
+// WithRepoClient provides a go-github RepositoriesService or suitable mock.
+func WithRepoClient(rc repoClient) UpdaterOpt {
+	return func(u *Updater) {
+		u.ghRepos = rc
+	}
+}
+
+func NewUpdater(root string, opts ...UpdaterOpt) *Updater {
+	u := &Updater{root: root}
+	for _, opt := range opts {
+		opt(u)
+	}
+
+	if u.ghRepos == nil {
+		gh := github.NewClient(http.DefaultClient)
+		u.ghRepos = gh.Repositories
+	}
+
+	return u
 }
 
 func (u *Updater) ApplyUpdate(ctx context.Context, update updater.Update) error {

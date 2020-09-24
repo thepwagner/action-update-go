@@ -2,20 +2,19 @@ package dockerurl_test
 
 import (
 	"fmt"
-	"net/http"
 	"testing"
 
-	"github.com/google/go-github/v32/github"
 	deepcopy "github.com/otiai10/copy"
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/dockerurl"
 	"github.com/thepwagner/action-update-go/updater"
 )
 
+//go:generate mockery --outpkg dockerurl_test --output . --testonly --name repoClient --structname mockRepoClient --filename mockrepoclient_test.go
+
 func updaterFromFixture(t *testing.T, fixture string) updater.Updater {
 	tempDir := tempDirFromFixture(t, fixture)
-	gh := github.NewClient(http.DefaultClient)
-	return dockerurl.NewUpdater(tempDir, gh)
+	return dockerurl.NewUpdater(tempDir)
 }
 
 func tempDirFromFixture(t *testing.T, fixture string) string {

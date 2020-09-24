@@ -9,8 +9,8 @@ import (
 	"github.com/thepwagner/action-update-go/updater"
 )
 
-//go:generate mockery --outpkg update_test --output . --testonly --name Updater --structname mockUpdater --filename mockupdater_test.go
-//go:generate mockery --outpkg update_test --output . --testonly --name Repo --structname mockRepo --filename mockrepo_test.go
+//go:generate mockery --outpkg updater_test --output . --testonly --name Updater --structname mockUpdater --filename mockupdater_test.go
+//go:generate mockery --outpkg updater_test --output . --testonly --name Repo --structname mockRepo --filename mockrepo_test.go
 
 func TestRepoUpdater_Update(t *testing.T) {
 	r := &mockRepo{}
