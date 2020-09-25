@@ -16,7 +16,7 @@ const fixtureCount = 2
 
 func TestWalkDockerfiles(t *testing.T) {
 	var cnt int64
-	deps, err := docker.WalkDockerfiles("testdata/", func(_ *parser.Result) ([]updater.Dependency, error) {
+	deps, err := docker.ExtractDockerfileDependencies("testdata/", func(_ *parser.Result) ([]updater.Dependency, error) {
 		cur := atomic.AddInt64(&cnt, 1)
 		return []updater.Dependency{{Path: "test", Version: fmt.Sprintf("v%d", cur)}}, nil
 	})

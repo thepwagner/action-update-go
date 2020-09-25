@@ -12,6 +12,9 @@ func TestUpdater_Dependencies(t *testing.T) {
 		"simple": {
 			{Path: "github.com/containerd/containerd/releases", Version: "v1.4.0"},
 		},
+		"hash": {
+			{Path: "github.com/elixir-lang/elixir/releases", Version: "v1.10.3"},
+		},
 	}
 	updatertest.DependenciesFixtures(t, updaterFromFixture, cases)
 }

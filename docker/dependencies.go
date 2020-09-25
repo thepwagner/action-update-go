@@ -12,7 +12,7 @@ import (
 )
 
 func (u *Updater) Dependencies(_ context.Context) ([]updater.Dependency, error) {
-	return WalkDockerfiles(u.root, u.extractDockerfile)
+	return ExtractDockerfileDependencies(u.root, u.extractDockerfile)
 }
 
 var _ updater.Updater = (*Updater)(nil)
@@ -22,27 +22,32 @@ func (u *Updater) extractDockerfile(parsed *parser.Result) ([]updater.Dependency
 
 	deps := make([]updater.Dependency, 0)
 	for _, instruction := range parsed.AST.Children {
-		switch instruction.Value {
-		case command.From:
-			image := instruction.Next.Value
-			imageSplit := strings.SplitN(image, ":", 2)
-			if len(imageSplit) == 1 {
-				deps = append(deps, updater.Dependency{Path: image, Version: "latest"})
-				continue
-			}
+		// Ignore everything but FROM instructions
+		if instruction.Value != command.From {
+			continue
+		}
 
-			if strings.Contains(imageSplit[1], "$") {
-				// Version contains a variable, attempt interpolation:
-				vers := vars.Interpolate(imageSplit[1])
-				if !strings.Contains(vers, "$") {
-					deps = append(deps, updater.Dependency{Path: imageSplit[0], Version: vers})
-				}
-			} else if semver.IsValid(imageSplit[1]) {
-				deps = append(deps, updater.Dependency{Path: imageSplit[0], Version: imageSplit[1]})
-			} else if s := fmt.Sprintf("v%s", imageSplit[1]); semver.IsValid(s) {
-				deps = append(deps, updater.Dependency{Path: imageSplit[0], Version: imageSplit[1]})
-			}
+		// Parse the image name:
+		image := instruction.Next.Value
+		imageSplit := strings.SplitN(image, ":", 2)
+		if len(imageSplit) == 1 {
+			// No tag provided, default to ":latest"
+			deps = append(deps, updater.Dependency{Path: image, Version: "latest"})
+			continue
+		}
 
+		if strings.Contains(imageSplit[1], "$") {
+			// Version contains a variable, attempt interpolation:
+			vers := vars.Interpolate(imageSplit[1])
+			if !strings.Contains(vers, "$") {
+				deps = append(deps, updater.Dependency{Path: imageSplit[0], Version: vers})
+			}
+		} else if semver.IsValid(imageSplit[1]) {
+			// Image tag is valid semver:
+			deps = append(deps, updater.Dependency{Path: imageSplit[0], Version: imageSplit[1]})
+		} else if s := fmt.Sprintf("v%s", imageSplit[1]); semver.IsValid(s) {
+			// Image tag is close-enough to valid semver:
+			deps = append(deps, updater.Dependency{Path: imageSplit[0], Version: imageSplit[1]})
 		}
 	}
 	return deps, nil

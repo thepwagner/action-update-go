@@ -12,33 +12,33 @@ import (
 // Interpolation attempts to interpolate a variable Dockerfile string
 // Easily fooled by duplicate ARGs
 type Interpolation struct {
-	vars      map[string]string
+	Vars      map[string]string
 	varsByLen []string
 }
 
 func NewInterpolation(parsed *parser.Result) *Interpolation {
 	i := &Interpolation{
-		vars: map[string]string{},
+		Vars: map[string]string{},
 	}
 	for _, instruction := range parsed.AST.Children {
 		switch instruction.Value {
 		case command.Arg:
 			varSplit := strings.SplitN(instruction.Next.Value, "=", 2)
 			if len(varSplit) == 2 {
-				i.vars[varSplit[0]] = varSplit[1]
+				i.Vars[varSplit[0]] = varSplit[1]
 			}
 
 		case command.Env:
 			iter := instruction
 			for iter.Next != nil {
-				i.vars[iter.Next.Value] = iter.Next.Next.Value
+				i.Vars[iter.Next.Value] = iter.Next.Next.Value
 				iter = iter.Next.Next
 			}
 		}
 	}
 
-	i.varsByLen = make([]string, 0, len(i.vars))
-	for k := range i.vars {
+	i.varsByLen = make([]string, 0, len(i.Vars))
+	for k := range i.Vars {
 		i.varsByLen = append(i.varsByLen, k)
 	}
 	sort.SliceStable(i.varsByLen, func(x, y int) bool {
@@ -51,7 +51,7 @@ func NewInterpolation(parsed *parser.Result) *Interpolation {
 func (i *Interpolation) Interpolate(s string) string {
 	pre := s
 	for _, k := range i.varsByLen {
-		v := i.vars[k]
+		v := i.Vars[k]
 		s = strings.ReplaceAll(s, fmt.Sprintf("${%s}", k), v)
 		s = strings.ReplaceAll(s, fmt.Sprintf("$%s", k), v)
 	}

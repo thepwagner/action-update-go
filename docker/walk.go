@@ -10,9 +10,7 @@ import (
 	"github.com/thepwagner/action-update-go/updater"
 )
 
-func WalkDockerfiles(root string, extractor func(parsed *parser.Result) ([]updater.Dependency, error)) ([]updater.Dependency, error) {
-	deps := make([]updater.Dependency, 0)
-
+func WalkDockerfiles(root string, walkFunc func(path string, parsed *parser.Result) error) error {
 	err := filepath.Walk(root, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -25,13 +23,29 @@ func WalkDockerfiles(root string, extractor func(parsed *parser.Result) ([]updat
 		if err != nil {
 			return fmt.Errorf("parsing %q: %w", path, err)
 		}
+		if err := walkFunc(path, parsed); err != nil {
+			return fmt.Errorf("walking %q: %w", path, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("walking filesystem: %w", err)
+	}
+	return nil
+}
+
+func ExtractDockerfileDependencies(root string, extractor func(parsed *parser.Result) ([]updater.Dependency, error)) ([]updater.Dependency, error) {
+	deps := make([]updater.Dependency, 0)
+
+	err := WalkDockerfiles(root, func(path string, parsed *parser.Result) error {
 		fileDeps, err := extractor(parsed)
 		if err != nil {
-			return fmt.Errorf("extracting %q: %w", path, err)
+			return fmt.Errorf("extracting dependencies: %w", err)
 		}
 		deps = append(deps, fileDeps...)
 		return nil
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("walking filesystem: %w", err)
 	}

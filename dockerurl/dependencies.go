@@ -2,7 +2,6 @@ package dockerurl
 
 import (
 	"context"
-	"fmt"
 	"regexp"
 
 	"github.com/moby/buildkit/frontend/dockerfile/command"
@@ -12,29 +11,31 @@ import (
 )
 
 func (u *Updater) Dependencies(_ context.Context) ([]updater.Dependency, error) {
-	return docker.WalkDockerfiles(u.root, u.extractDockerfile)
+	return docker.ExtractDockerfileDependencies(u.root, u.extractDockerfile)
 }
 
-var ghRelease = regexp.MustCompile(`https://github.com/(\w+)/(\w+)/releases/download/([^/]+)/`)
+var ghRelease = regexp.MustCompile(`https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/`)
 
 func (u *Updater) extractDockerfile(parsed *parser.Result) ([]updater.Dependency, error) {
 	vars := docker.NewInterpolation(parsed)
 
 	deps := make([]updater.Dependency, 0)
 	for _, instruction := range parsed.AST.Children {
-		switch instruction.Value {
-		case command.Run:
-			cmdLine := vars.Interpolate(instruction.Next.Value)
-			ghReleaseMatch := ghRelease.FindStringSubmatch(cmdLine)
-			if len(ghReleaseMatch) > 0 {
-				repo := ghReleaseMatch[1]
-				name := ghReleaseMatch[2]
-				vers := ghReleaseMatch[3]
-				deps = append(deps, updater.Dependency{
-					Path:    fmt.Sprintf("github.com/%s/%s/releases", repo, name),
-					Version: vers,
-				})
-			}
+		// Ignore everything but RUN instructions
+		if instruction.Value != command.Run {
+			continue
+		}
+
+		// Best-effort interpolate, then extract GitHub release URLs from the resulting commands:
+		cmdLine := vars.Interpolate(instruction.Next.Value)
+		for _, ghReleaseMatch := range ghRelease.FindAllStringSubmatch(cmdLine, -1) {
+			repo := ghReleaseMatch[1]
+			name := ghReleaseMatch[2]
+			vers := ghReleaseMatch[3]
+			deps = append(deps, updater.Dependency{
+				Path:    formatGitHubRelease(repo, name),
+				Version: vers,
+			})
 		}
 	}
 	return deps, nil

@@ -13,13 +13,6 @@ import (
 	"github.com/thepwagner/action-update-go/updater"
 )
 
-const (
-	depPath    = "github.com/containerd/containerd/releases"
-	oldVersion = "v1.4.0"
-)
-
-var dep = updater.Dependency{Path: depPath, Version: oldVersion}
-
 func TestUpdater_Check(t *testing.T) {
 	cases := map[string]struct {
 		releases []*github.RepositoryRelease
@@ -27,30 +20,30 @@ func TestUpdater_Check(t *testing.T) {
 	}{
 		"no update available": {
 			releases: []*github.RepositoryRelease{
-				{TagName: github.String(oldVersion)},
+				{TagName: github.String(previousVersion)},
 			},
 			update: nil,
 		},
 		"new version available": {
 			releases: []*github.RepositoryRelease{
-				{TagName: github.String("v1.4.1")},
+				{TagName: github.String(nextVersion)},
 			},
-			update: github.String("v1.4.1"),
+			update: github.String(nextVersion),
 		},
 		"pre-release version available": {
 			releases: []*github.RepositoryRelease{
-				{TagName: github.String("v1.4.1"), Prerelease: github.Bool(true)},
+				{TagName: github.String(nextVersion), Prerelease: github.Bool(true)},
 			},
 			update: nil,
 		},
 		"many versions available": {
 			releases: []*github.RepositoryRelease{
 				{TagName: github.String("v1.3.1")},
-				{TagName: github.String("v1.4.1")},
+				{TagName: github.String(nextVersion)},
 				{TagName: github.String("v1.3.0")},
 				{TagName: github.String("my-awesome-release")},
 			},
-			update: github.String("v1.4.1"),
+			update: github.String(nextVersion),
 		},
 	}
 
@@ -58,7 +51,7 @@ func TestUpdater_Check(t *testing.T) {
 	for lbl, tc := range cases {
 		t.Run(lbl, func(t *testing.T) {
 			rc := &mockRepoClient{}
-			rc.On("ListReleases", ctx, "containerd", "containerd", mock.Anything).Return(tc.releases, nil, nil)
+			rc.On("ListReleases", ctx, depOwner, depRepoName, mock.Anything).Return(tc.releases, nil, nil)
 			u := dockerurl.NewUpdater("", dockerurl.WithRepoClient(rc))
 
 			update, err := u.Check(ctx, dep)
@@ -68,7 +61,7 @@ func TestUpdater_Check(t *testing.T) {
 			} else {
 				assert.Equal(t, &updater.Update{
 					Path:     depPath,
-					Previous: oldVersion,
+					Previous: previousVersion,
 					Next:     *tc.update,
 				}, update)
 			}
@@ -82,14 +75,13 @@ func TestUpdater_Check_Unknown(t *testing.T) {
 	u := dockerurl.NewUpdater("")
 	_, err := u.Check(context.Background(), updater.Dependency{Path: "foo.com/bar"})
 	assert.Error(t, err)
-
 }
 
 func TestUpdater_Check_Error(t *testing.T) {
 	ctx := context.Background()
 	listErr := errors.New("kaboom")
 	rc := &mockRepoClient{}
-	rc.On("ListReleases", ctx, "containerd", "containerd", mock.Anything).Return(nil, nil, listErr)
+	rc.On("ListReleases", ctx, depOwner, depRepoName, mock.Anything).Return(nil, nil, listErr)
 	u := dockerurl.NewUpdater("", dockerurl.WithRepoClient(rc))
 
 	_, err := u.Check(ctx, dep)
