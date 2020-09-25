@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thepwagner/action-update-go/gomod"
 	"github.com/thepwagner/action-update-go/repo"
+	"github.com/thepwagner/action-update-go/updater"
 )
 
 func TestDefaultUpdateBranchName(t *testing.T) {
@@ -15,21 +15,21 @@ func TestDefaultUpdateBranchName(t *testing.T) {
 
 	cases := []struct {
 		branch string
-		update *gomod.Update
+		update *updater.Update
 	}{
 		{
 			branch: "my-awesome-branch",
 			update: nil,
 		},
 		{
-			update: &gomod.Update{
+			update: &updater.Update{
 				Path: "github.com/foo/bar",
 				Next: "v1.2.3",
 			},
 			branch: "action-update-go/main/github.com/foo/bar/v1.2.3",
 		},
 		{
-			update: &gomod.Update{
+			update: &updater.Update{
 				Path:     "github.com/foo/bar/v2",
 				Previous: "v2.0.0",
 				Next:     "v3.0.0",
@@ -37,7 +37,7 @@ func TestDefaultUpdateBranchName(t *testing.T) {
 			branch: "action-update-go/main/github.com/foo/bar/v2/v3.0.0",
 		},
 		{
-			update: &gomod.Update{
+			update: &updater.Update{
 				Path:     "github.com/foo/bar",
 				Previous: "v2.0.0",
 				Next:     "v3.0.0",
@@ -48,12 +48,12 @@ func TestDefaultUpdateBranchName(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(fmt.Sprintf("%v", c.branch), func(t *testing.T) {
-			base, update := branchNamer.Parse(c.branch)
+			base, up := branchNamer.Parse(c.branch)
 
 			if c.update != nil {
 				assert.Equal(t, baseBranch, base)
-				assert.Equal(t, c.update.Path, update.Path)
-				assert.Equal(t, c.update.Next, update.Next)
+				assert.Equal(t, c.update.Path, up.Path)
+				assert.Equal(t, c.update.Next, up.Next)
 
 				formatted := branchNamer.Format(baseBranch, *c.update)
 				assert.Equal(t, c.branch, formatted)

@@ -11,7 +11,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/sirupsen/logrus"
-	"github.com/thepwagner/action-update-go/gomod"
+	"github.com/thepwagner/action-update-go/updater"
 )
 
 const RemoteName = "origin"
@@ -27,7 +27,7 @@ type GitRepo struct {
 	branchNamer UpdateBranchNamer
 }
 
-var _ gomod.Repo = (*GitRepo)(nil)
+var _ updater.Repo = (*GitRepo)(nil)
 
 // GitIdentity performs commits.
 type GitIdentity struct {
@@ -122,7 +122,7 @@ func (t *GitRepo) setBranch(refName plumbing.ReferenceName) error {
 	return nil
 }
 
-func (t *GitRepo) NewBranch(baseBranch string, update gomod.Update) error {
+func (t *GitRepo) NewBranch(baseBranch string, update updater.Update) error {
 	branch := t.branchNamer.Format(baseBranch, update)
 	log := logrus.WithFields(logrus.Fields{
 		"base":   baseBranch,
@@ -169,7 +169,7 @@ func (t *GitRepo) Root() string {
 	return t.wt.Filesystem.Root()
 }
 
-func (t *GitRepo) Push(ctx context.Context, update gomod.Update) error {
+func (t *GitRepo) Push(ctx context.Context, update updater.Update) error {
 	// TODO: dependency inject this?
 	commitMessage := fmt.Sprintf("update %s to %s", update.Path, update.Next)
 	if err := t.commit(commitMessage); err != nil {
@@ -239,14 +239,14 @@ func (t *GitRepo) push(ctx context.Context) error {
 	return nil
 }
 
-func (t *GitRepo) Updates(_ context.Context) (gomod.UpdatesByBranch, error) {
+func (t *GitRepo) Updates(_ context.Context) (updater.UpdatesByBranch, error) {
 	branches, err := t.repo.Branches()
 	if err != nil {
 		return nil, fmt.Errorf("iterating branches: %w", err)
 	}
 	defer branches.Close()
 
-	ret := gomod.UpdatesByBranch{}
+	ret := updater.UpdatesByBranch{}
 	addToIndex := func(ref *plumbing.Reference) error {
 		if base, update := t.branchNamer.Parse(ref.Name().Short()); update != nil {
 			ret.AddOpen(base, *update)
@@ -259,6 +259,6 @@ func (t *GitRepo) Updates(_ context.Context) (gomod.UpdatesByBranch, error) {
 	return ret, nil
 }
 
-func (t *GitRepo) Parse(b string) (string, *gomod.Update) {
+func (t *GitRepo) Parse(b string) (string, *updater.Update) {
 	return t.branchNamer.Parse(b)
 }

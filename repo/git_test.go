@@ -12,8 +12,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update-go/gomod"
 	"github.com/thepwagner/action-update-go/repo"
+	"github.com/thepwagner/action-update-go/updater"
 )
 
 const (
@@ -23,8 +23,8 @@ const (
 )
 
 var (
-	fileData = []byte{1, 2, 3, 4}
-	update   = gomod.Update{
+	fileData   = []byte{1, 2, 3, 4}
+	fakeUpdate = updater.Update{
 		Path: "github.com/foo/bar",
 		Next: "v1.0.0",
 	}
@@ -79,25 +79,25 @@ func TestGitRepo_SetBranch_NotFound(t *testing.T) {
 
 func TestGitRepo_NewBranch(t *testing.T) {
 	gr := initGitRepo(t, plumbing.NewBranchReferenceName(branchName))
-	err := gr.NewBranch(branchName, update)
+	err := gr.NewBranch(branchName, fakeUpdate)
 	assert.NoError(t, err)
 	assert.Equal(t, updateBranch, gr.Branch())
 }
 
 func TestGitRepo_NewBranch_FromRemote(t *testing.T) {
 	gr := initGitRepo(t, plumbing.NewRemoteReferenceName(repo.RemoteName, branchName))
-	err := gr.NewBranch(branchName, update)
+	err := gr.NewBranch(branchName, fakeUpdate)
 	assert.NoError(t, err)
 	assert.Equal(t, updateBranch, gr.Branch())
 }
 
 func TestGitRepo_Push(t *testing.T) {
 	gr := initGitRepo(t, plumbing.NewRemoteReferenceName(repo.RemoteName, branchName))
-	err := gr.NewBranch(branchName, update)
+	err := gr.NewBranch(branchName, fakeUpdate)
 	require.NoError(t, err)
 	tmpFile := addTempFile(t, gr)
 
-	err = gr.Push(context.Background(), gomod.Update{
+	err = gr.Push(context.Background(), updater.Update{
 		Path: "github.com/test",
 		Next: "v1.0.0",
 	})
@@ -144,11 +144,11 @@ func TestGitRepo_Push_WithRemote(t *testing.T) {
 
 	gr, err := repo.NewGitRepo(downstream)
 	require.NoError(t, err)
-	err = gr.NewBranch(branchName, update)
+	err = gr.NewBranch(branchName, fakeUpdate)
 	require.NoError(t, err)
 	addTempFile(t, gr)
 
-	err = gr.Push(context.Background(), gomod.Update{
+	err = gr.Push(context.Background(), updater.Update{
 		Path: "github.com/test",
 		Next: "v1.0.0",
 	})

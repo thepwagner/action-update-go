@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update-go/gomod"
 	"github.com/thepwagner/action-update-go/repo"
+	"github.com/thepwagner/action-update-go/updater"
 )
 
 func TestGitHubPullRequestContentGenerator_Generate(t *testing.T) {
@@ -16,7 +16,7 @@ func TestGitHubPullRequestContentGenerator_Generate(t *testing.T) {
 	client := repo.NewGitHubClient(token)
 	gen := repo.NewGitHubPullRequestContent(client)
 
-	title, body, err := gen.Generate(context.Background(), gomod.Update{
+	title, body, err := gen.Generate(context.Background(), updater.Update{
 		Path:     "github.com/aws/aws-sdk-go",
 		Previous: "v1.34.16",
 		Next:     "v1.34.17",
@@ -42,7 +42,7 @@ func TestGitHubPullRequestContentGenerator_GenerateNoChangeLog(t *testing.T) {
 	client := repo.NewGitHubClient(token)
 	gen := repo.NewGitHubPullRequestContent(client)
 
-	title, body, err := gen.Generate(context.Background(), gomod.Update{
+	title, body, err := gen.Generate(context.Background(), updater.Update{
 		Path:     "github.com/foo/bar",
 		Previous: "v0.4.1",
 		Next:     "v99.88.77",

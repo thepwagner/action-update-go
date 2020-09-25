@@ -10,7 +10,7 @@ import (
 
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 	"github.com/google/go-github/v32/github"
-	"github.com/thepwagner/action-update-go/gomod"
+	"github.com/thepwagner/action-update-go/updater"
 )
 
 type GitHubPullRequestContent struct {
@@ -23,13 +23,13 @@ func NewGitHubPullRequestContent(gh *github.Client) *GitHubPullRequestContent {
 	return &GitHubPullRequestContent{github: gh}
 }
 
-func (d *GitHubPullRequestContent) Generate(ctx context.Context, update gomod.Update) (title, body string, err error) {
+func (d *GitHubPullRequestContent) Generate(ctx context.Context, update updater.Update) (title, body string, err error) {
 	title = fmt.Sprintf("Update %s from %s to %s", update.Path, update.Previous, update.Next)
 	body, err = d.prBody(ctx, update)
 	return
 }
 
-func (d *GitHubPullRequestContent) prBody(ctx context.Context, update gomod.Update) (string, error) {
+func (d *GitHubPullRequestContent) prBody(ctx context.Context, update updater.Update) (string, error) {
 	var body strings.Builder
 	_, _ = fmt.Fprintf(&body, "Here is %s %s, I hope it works.\n", update.Path, update.Next)
 
@@ -40,7 +40,7 @@ func (d *GitHubPullRequestContent) prBody(ctx context.Context, update gomod.Upda
 	return body.String(), nil
 }
 
-func (d *GitHubPullRequestContent) writeGitHubChangelog(ctx context.Context, out io.Writer, update gomod.Update) error {
+func (d *GitHubPullRequestContent) writeGitHubChangelog(ctx context.Context, out io.Writer, update updater.Update) error {
 	if !strings.HasPrefix(update.Path, "github.com/") {
 		return nil
 	}
@@ -61,7 +61,7 @@ func (d *GitHubPullRequestContent) writeGitHubChangelog(ctx context.Context, out
 	return nil
 }
 
-func writePatchBlob(out io.Writer, update gomod.Update) {
+func writePatchBlob(out io.Writer, update updater.Update) {
 	major := semver.Major(update.Previous) != semver.Major(update.Next)
 	minor := !major && semver.MajorMinor(update.Previous) != semver.MajorMinor(update.Next)
 	details := struct {
