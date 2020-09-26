@@ -1,7 +1,6 @@
 package repo_test
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -17,22 +16,6 @@ func TestNewGitHubRepo(t *testing.T) {
 	gh, err := repo.NewGitHubRepo(gr, "foo/bar", "")
 	require.NoError(t, err)
 	assert.NotNil(t, gh)
-}
-
-func TestGitHubRepo_Updates(t *testing.T) {
-	token := tokenOrSkip(t)
-
-	gr := initGitRepo(t, plumbing.NewBranchReferenceName(branchName))
-	gh, err := repo.NewGitHubRepo(gr, "thepwagner/action-update-go", token)
-	require.NoError(t, err)
-
-	updates, err := gh.Updates(context.Background())
-	require.NoError(t, err)
-	assert.Len(t, updates, 3)
-
-	mainUpdates := updates["main"]
-	assert.Len(t, mainUpdates.Open, 0)
-	assert.Len(t, mainUpdates.Closed, 4)
 }
 
 func tokenOrSkip(t *testing.T) string {

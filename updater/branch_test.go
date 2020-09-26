@@ -1,17 +1,16 @@
-package repo_test
+package updater_test
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thepwagner/action-update-go/repo"
 	"github.com/thepwagner/action-update-go/updater"
 )
 
-func TestDefaultUpdateBranchName(t *testing.T) {
+func TestDefaultUpdateBranchNamer(t *testing.T) {
 	const baseBranch = "main"
-	branchNamer := repo.DefaultUpdateBranchNamer{}
+	branchNamer := updater.DefaultUpdateBranchNamer{}
 
 	cases := []struct {
 		branch string

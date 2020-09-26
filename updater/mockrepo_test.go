@@ -28,41 +28,18 @@ func (_m *mockRepo) Branch() string {
 	return r0
 }
 
-// NewBranch provides a mock function with given fields: baseBranch, update
-func (_m *mockRepo) NewBranch(baseBranch string, update updater.Update) error {
-	ret := _m.Called(baseBranch, update)
+// NewBranch provides a mock function with given fields: base, branch
+func (_m *mockRepo) NewBranch(base string, branch string) error {
+	ret := _m.Called(base, branch)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, updater.Update) error); ok {
-		r0 = rf(baseBranch, update)
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(base, branch)
 	} else {
 		r0 = ret.Error(0)
 	}
 
 	return r0
-}
-
-// Parse provides a mock function with given fields: _a0
-func (_m *mockRepo) Parse(_a0 string) (string, *updater.Update) {
-	ret := _m.Called(_a0)
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func(string) string); ok {
-		r0 = rf(_a0)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	var r1 *updater.Update
-	if rf, ok := ret.Get(1).(func(string) *updater.Update); ok {
-		r1 = rf(_a0)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(*updater.Update)
-		}
-	}
-
-	return r0, r1
 }
 
 // Push provides a mock function with given fields: _a0, _a1
@@ -105,27 +82,4 @@ func (_m *mockRepo) SetBranch(branch string) error {
 	}
 
 	return r0
-}
-
-// Updates provides a mock function with given fields: _a0
-func (_m *mockRepo) Updates(_a0 context.Context) (updater.UpdatesByBranch, error) {
-	ret := _m.Called(_a0)
-
-	var r0 updater.UpdatesByBranch
-	if rf, ok := ret.Get(0).(func(context.Context) updater.UpdatesByBranch); ok {
-		r0 = rf(_a0)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(updater.UpdatesByBranch)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }

@@ -3,10 +3,10 @@
 This action checks for available dependency updates to a go project, and opens individual pull requests proposing each available update.
 
 * Ignores dependencies not released with semver
-* Ignores dependencies if the initial PR is closed
 * Go module major version updates (e.g. `github.com/foo/bar/v2`)
 * Vendoring detection and support
 * Can multiple multiple base branches
+* Update batching
 
 Suggested triggers: `schedule`, `workflow_dispatch`.
 

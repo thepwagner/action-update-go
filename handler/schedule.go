@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/sirupsen/logrus"
@@ -62,6 +63,10 @@ func getRepoUpdater(env *cmd.Environment) (updater.Repo, *updater.RepoUpdater, e
 	}
 
 	gomodUpdater := gomod.NewUpdater(modRepo.Root())
-	repoUpdater := updater.NewRepoUpdater(modRepo, gomodUpdater)
+	batches, err := env.Batches()
+	if err != nil {
+		return nil, nil, fmt.Errorf("parsing batches")
+	}
+	repoUpdater := updater.NewRepoUpdater(modRepo, gomodUpdater, updater.WithBatches(batches))
 	return gitRepo, repoUpdater, nil
 }

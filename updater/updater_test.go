@@ -2,6 +2,7 @@ package updater_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -25,7 +26,8 @@ func TestRepoUpdater_Update(t *testing.T) {
 }
 
 func setupMockUpdate(ctx context.Context, r *mockRepo, u *mockUpdater, up updater.Update) {
-	r.On("NewBranch", baseBranch, up).Return(nil)
+	branch := fmt.Sprintf("action-update-go/main/%s/%s", up.Path, up.Next)
+	r.On("NewBranch", baseBranch, branch).Return(nil)
 	u.On("ApplyUpdate", ctx, up).Return(nil)
 	r.On("Push", ctx, up).Return(nil)
 }
@@ -36,7 +38,6 @@ func TestRepoUpdater_UpdateAll_NoChanges(t *testing.T) {
 	ru := updater.NewRepoUpdater(r, u)
 	ctx := context.Background()
 
-	r.On("Updates", ctx).Return(updater.UpdatesByBranch{}, nil)
 	r.On("SetBranch", baseBranch).Return(nil)
 	dep := updater.Dependency{Path: mockUpdate.Path, Version: mockUpdate.Previous}
 	u.On("Dependencies", ctx).Return([]updater.Dependency{dep}, nil)
@@ -54,7 +55,6 @@ func TestRepoUpdater_UpdateAll_Update(t *testing.T) {
 	ru := updater.NewRepoUpdater(r, u)
 	ctx := context.Background()
 
-	r.On("Updates", ctx).Return(updater.UpdatesByBranch{}, nil)
 	r.On("SetBranch", baseBranch).Return(nil)
 	dep := updater.Dependency{Path: mockUpdate.Path, Version: mockUpdate.Previous}
 	u.On("Dependencies", ctx).Return([]updater.Dependency{dep}, nil)
@@ -74,7 +74,6 @@ func TestRepoUpdater_UpdateAll_Multiple(t *testing.T) {
 	ru := updater.NewRepoUpdater(r, u)
 	ctx := context.Background()
 
-	r.On("Updates", ctx).Return(updater.UpdatesByBranch{}, nil)
 	r.On("SetBranch", baseBranch).Return(nil)
 	dep := updater.Dependency{Path: mockUpdate.Path, Version: mockUpdate.Previous}
 	otherDep := updater.Dependency{Path: "github.com/foo/baz", Version: mockUpdate.Previous}
@@ -95,11 +94,10 @@ func TestRepoUpdater_UpdateAll_Multiple(t *testing.T) {
 func TestRepoUpdater_UpdateAll_MultipleBatch(t *testing.T) {
 	r := &mockRepo{}
 	u := &mockUpdater{}
-	ru := updater.NewRepoUpdater(r, u)
-	ru.Batch = true
+	batchName := "foo"
+	ru := updater.NewRepoUpdater(r, u, updater.WithBatches(map[string][]string{batchName: {"github.com/foo"}}))
 	ctx := context.Background()
 
-	r.On("Updates", ctx).Return(updater.UpdatesByBranch{}, nil)
 	r.On("SetBranch", baseBranch).Return(nil)
 	dep := updater.Dependency{Path: mockUpdate.Path, Version: mockUpdate.Previous}
 	otherDep := updater.Dependency{Path: "github.com/foo/baz", Version: mockUpdate.Previous}
@@ -109,7 +107,7 @@ func TestRepoUpdater_UpdateAll_MultipleBatch(t *testing.T) {
 	otherUpdate := updater.Update{Path: "github.com/foo/baz", Next: "v3.0.0"}
 	u.On("Check", ctx, otherDep).Return(&otherUpdate, nil)
 
-	r.On("NewBranch", baseBranch, mock.Anything).Times(1).Return(nil)
+	r.On("NewBranch", baseBranch, "action-update-go/main/foo").Times(1).Return(nil)
 	u.On("ApplyUpdate", ctx, mock.Anything).Times(2).Return(nil)
 	r.On("Push", ctx, mock.Anything).Times(1).Return(nil)
 

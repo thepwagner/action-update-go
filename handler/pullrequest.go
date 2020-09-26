@@ -28,7 +28,7 @@ func PullRequest(ctx context.Context, env *cmd.Environment, evt interface{}) err
 }
 
 func prReopened(ctx context.Context, env *cmd.Environment, pr *github.PullRequestEvent) error {
-	repo, updater, err := getRepoUpdater(env)
+	_, updater, err := getRepoUpdater(env)
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func prReopened(ctx context.Context, env *cmd.Environment, pr *github.PullReques
 	prRef := pr.GetPullRequest().GetHead().GetRef()
 	logrus.WithField("ref", prRef).Info("PR reopened, recreating update")
 
-	base, update := repo.Parse(prRef)
+	base, update := updater.Parse(prRef)
 	if update == nil {
 		logrus.Info("not an update PR")
 		return nil

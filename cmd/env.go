@@ -8,6 +8,7 @@ import (
 	"github.com/caarlos0/env/v5"
 	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 type Environment struct {
@@ -15,6 +16,7 @@ type Environment struct {
 	GitHubEventPath  string `env:"GITHUB_EVENT_PATH"`
 	GitHubRepository string `env:"GITHUB_REPOSITORY"`
 
+	InputBatches  string `env:"INPUT_BATCHES"`
 	InputBranches string `env:"INPUT_BRANCHES"`
 	GitHubToken   string `env:"INPUT_TOKEN"`
 	InputLogLevel string `env:"INPUT_LOG_LEVEL" envDefault:"debug"`
@@ -54,6 +56,28 @@ func (e *Environment) Branches() (branches []string) {
 		}
 	}
 	return
+}
+
+func (e *Environment) Batches() (map[string][]string, error) {
+	raw := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(e.InputBatches), &raw); err != nil {
+		return nil, fmt.Errorf("decoding batches yaml: %w", err)
+	}
+
+	m := make(map[string][]string, len(raw))
+	for key, value := range raw {
+		var prefixes []string
+		switch v := value.(type) {
+		case []interface{}:
+			for _, s := range v {
+				prefixes = append(prefixes, fmt.Sprintf("%v", s))
+			}
+		case string:
+			prefixes = append(prefixes, v)
+		}
+		m[key] = prefixes
+	}
+	return m, nil
 }
 
 func (e *Environment) LogLevel() logrus.Level {
