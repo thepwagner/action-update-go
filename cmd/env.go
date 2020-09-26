@@ -26,11 +26,6 @@ func ParseEnvironment() (*Environment, error) {
 	if err := env.Parse(&e); err != nil {
 		return nil, fmt.Errorf("parsing environment: %w", err)
 	}
-
-	logrus.WithFields(logrus.Fields{
-		"branches": len(e.Branches()),
-		"batches":  len(e.Batches()),
-	}).Info("parsed environment")
 	return &e, nil
 }
 
@@ -66,7 +61,6 @@ func (e *Environment) Batches() map[string][]string {
 	lines := strings.Split(e.InputBatches, "\n")
 	m := make(map[string][]string, len(lines))
 	for _, line := range lines {
-		line = strings.TrimSpace(line)
 		if split := strings.SplitN(line, ":", 2); len(split) == 2 {
 			prefixes := strings.Split(split[1], ",")
 

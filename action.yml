@@ -20,7 +20,7 @@ inputs:
     required: false
   batches:
     description: >
-      Configuration for grouping updates together, newline separated folling format:
+      Configuration for grouping updates together, newline separated following format:
         label:prefix1,prefix2
       e.g.
         internal:github.com/thepwagner/
