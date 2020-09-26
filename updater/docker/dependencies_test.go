@@ -18,5 +18,5 @@ func TestUpdater_Dependencies(t *testing.T) {
 			{Path: "alpine", Version: "3.11.0"},
 		},
 	}
-	updatertest.DependenciesFixtures(t, updaterFromFixture, cases)
+	updatertest.DependenciesFixtures(t, updaterFactory(), cases)
 }

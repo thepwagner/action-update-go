@@ -1,7 +1,6 @@
 package gomod_test
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/updater"
 	"github.com/thepwagner/action-update-go/updater/gomod"
+	"github.com/thepwagner/action-update-go/updatertest"
 )
 
 var goModFiles = []string{gomod.GoModFn, gomod.GoSumFn}
@@ -22,12 +22,10 @@ var pkgErrors081 = updater.Update{
 }
 
 func TestUpdater_ApplyUpdate_Simple(t *testing.T) {
-	tempDir := applyUpdateToFixture(t, "simple", pkgErrors081)
-	for _, fn := range goModFiles {
-		b, err := ioutil.ReadFile(filepath.Join(tempDir, fn))
-		require.NoError(t, err)
-		s := string(b)
+	tempDir := updatertest.ApplyUpdateToFixture(t, "simple", updaterFactory(), pkgErrors081)
+	uf := readModFiles(t, tempDir)
 
+	for _, s := range uf.GoModFiles() {
 		// Target path is updated:
 		assert.NotContains(t, s, "github.com/pkg/errors v0.8.0")
 		assert.Contains(t, s, "github.com/pkg/errors v0.8.1")
@@ -38,33 +36,26 @@ func TestUpdater_ApplyUpdate_Simple(t *testing.T) {
 }
 
 func TestUpdater_ApplyUpdate_Simple_NoTidy(t *testing.T) {
-	tempDir := applyUpdateToFixture(t, "simple", pkgErrors081, gomod.WithTidy(false))
+	tempDir := updatertest.ApplyUpdateToFixture(t, "simple", updaterFactory(gomod.WithTidy(false)), pkgErrors081)
+	uf := readModFiles(t, tempDir)
 
-	b, err := ioutil.ReadFile(filepath.Join(tempDir, gomod.GoModFn))
-	require.NoError(t, err)
-	goMod := string(b)
-	assert.NotContains(t, goMod, "github.com/pkg/errors v0.8.0")
-	assert.Contains(t, goMod, "github.com/pkg/errors v0.8.1")
+	assert.NotContains(t, uf.GoMod, "github.com/pkg/errors v0.8.0")
+	assert.Contains(t, uf.GoMod, "github.com/pkg/errors v0.8.1")
 
-	b, err = ioutil.ReadFile(filepath.Join(tempDir, gomod.GoSumFn))
-	require.NoError(t, err)
-	goSum := string(b)
-	assert.Contains(t, goSum, "github.com/pkg/errors v0.8.0")
-	assert.Contains(t, goSum, "github.com/pkg/errors v0.8.1")
+	assert.Contains(t, uf.GoSum, "github.com/pkg/errors v0.8.0")
+	assert.Contains(t, uf.GoSum, "github.com/pkg/errors v0.8.1")
 }
 
 func TestUpdater_ApplyUpdate_Vendor(t *testing.T) {
-	tempDir := applyUpdateToFixture(t, "vendor", pkgErrors081)
+	tempDir := updatertest.ApplyUpdateToFixture(t, "vendor", updaterFactory(), pkgErrors081)
+	uf := readModFiles(t, tempDir)
 
-	b, err := ioutil.ReadFile(filepath.Join(tempDir, gomod.VendorModulesFn))
-	require.NoError(t, err)
-	modulesTxt := string(b)
-	assert.NotContains(t, modulesTxt, "github.com/pkg/errors v0.8.0")
-	assert.Contains(t, modulesTxt, "github.com/pkg/errors v0.8.1")
+	assert.NotContains(t, uf.ModulesTxt, "github.com/pkg/errors v0.8.0")
+	assert.Contains(t, uf.ModulesTxt, "github.com/pkg/errors v0.8.1")
 
 	// Sample to verify the source code matches:
 	// https://github.com/pkg/errors/compare/v0.8.0...v0.8.1
-	b, err = ioutil.ReadFile(filepath.Join(tempDir, "vendor", "github.com", "pkg", "errors", "stack.go"))
+	b, err := ioutil.ReadFile(filepath.Join(tempDir, "vendor", "github.com", "pkg", "errors", "stack.go"))
 	require.NoError(t, err)
 	stackGo := string(b)
 	assert.Contains(t, stackGo, `Format formats the stack of Frames according to the fmt.Formatter interface.`)
@@ -77,14 +68,11 @@ func TestUpdater_ApplyUpdate_Major(t *testing.T) {
 		Previous: "v5.1.4",
 		Next:     "v6.2.0",
 	}
-	tempDir := applyUpdateToFixture(t, "major", env6, gomod.WithMajorVersions(true))
+	tempDir := updatertest.ApplyUpdateToFixture(t, "major", updaterFactory(gomod.WithMajorVersions(true)), env6)
+	uf := readModFiles(t, tempDir)
 
 	// Path is renamed in module files:
-	for _, fn := range goModFiles {
-		b, err := ioutil.ReadFile(filepath.Join(tempDir, fn))
-		require.NoError(t, err)
-		s := string(b)
-
+	for _, s := range uf.GoModFiles() {
 		assert.NotContains(t, s, "github.com/caarlos0/env/v5 v5.1.4")
 		assert.Contains(t, s, "github.com/caarlos0/env/v6 v6.2.0")
 	}
@@ -98,7 +86,7 @@ func TestUpdater_ApplyUpdate_Major(t *testing.T) {
 }
 
 func TestUpdater_ApplyUpdate_NotInRoot(t *testing.T) {
-	tempDir := applyUpdateToFixture(t, "notinroot", pkgErrors081)
+	tempDir := updatertest.ApplyUpdateToFixture(t, "notinroot", updaterFactory(), pkgErrors081)
 
 	// Path is renamed in module files:
 	for _, fn := range goModFiles {
@@ -130,33 +118,45 @@ func TestUpdater_ApplyUpdate_NotInRoot(t *testing.T) {
 }
 
 func TestUpdater_ApplyUpdate_Replace(t *testing.T) {
-	tempDir := applyUpdateToFixture(t, "replace", updater.Update{
+	replacement := updater.Update{
 		Path: "github.com/thepwagner/errors",
 		Next: "v0.8.1",
-	})
-
-	b, err := ioutil.ReadFile(filepath.Join(tempDir, gomod.GoModFn))
-	require.NoError(t, err)
-	goMod := string(b)
+	}
+	tempDir := updatertest.ApplyUpdateToFixture(t, "replace", updaterFactory(), replacement)
+	uf := readModFiles(t, tempDir)
 
 	// Base version unchanged:
-	assert.Contains(t, goMod, "github.com/pkg/errors v0.8.0")
+	assert.Contains(t, uf.GoMod, "github.com/pkg/errors v0.8.0")
 	// Replacement changed:
-	assert.NotContains(t, goMod, "github.com/thepwagner/errors v0.8.0")
-	assert.Contains(t, goMod, "github.com/thepwagner/errors v0.8.1")
+	assert.NotContains(t, uf.GoMod, "github.com/thepwagner/errors v0.8.0")
+	assert.Contains(t, uf.GoMod, "github.com/thepwagner/errors v0.8.1")
+
+	assert.NotContains(t, uf.GoSum, "github.com/pkg/errors")
+	assert.NotContains(t, uf.GoSum, "github.com/thepwagner/errors v0.8.0")
+	assert.Contains(t, uf.GoSum, "github.com/thepwagner/errors v0.8.1")
+}
+
+type modFiles struct {
+	GoMod, GoSum string
+	ModulesTxt   string
+}
+
+func (uf modFiles) GoModFiles() []string {
+	return []string{uf.GoMod, uf.GoSum}
+}
+
+func readModFiles(t *testing.T, tempDir string) (uf modFiles) {
+	b, err := ioutil.ReadFile(filepath.Join(tempDir, gomod.GoModFn))
+	require.NoError(t, err)
+	uf.GoMod = string(b)
 
 	b, err = ioutil.ReadFile(filepath.Join(tempDir, gomod.GoSumFn))
 	require.NoError(t, err)
-	goSum := string(b)
-	assert.NotContains(t, goSum, "github.com/pkg/errors")
-	assert.NotContains(t, goSum, "github.com/thepwagner/errors v0.8.0")
-	assert.Contains(t, goSum, "github.com/thepwagner/errors v0.8.1")
-}
+	uf.GoSum = string(b)
 
-func applyUpdateToFixture(t *testing.T, fixture string, up updater.Update, opts ...gomod.UpdaterOpt) string {
-	tempDir := tempDirFromFixture(t, fixture)
-	goUpdater := gomod.NewUpdater(tempDir, opts...)
-	err := goUpdater.ApplyUpdate(context.Background(), up)
-	require.NoError(t, err)
-	return tempDir
+	b, err = ioutil.ReadFile(filepath.Join(tempDir, gomod.VendorModulesFn))
+	if err == nil {
+		uf.ModulesTxt = string(b)
+	}
+	return
 }

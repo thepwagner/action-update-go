@@ -16,5 +16,6 @@ func TestUpdater_Dependencies(t *testing.T) {
 			{Path: "github.com/elixir-lang/elixir/releases", Version: "v1.10.3"},
 		},
 	}
-	updatertest.DependenciesFixtures(t, updaterFromFixture, cases)
+
+	updatertest.DependenciesFixtures(t, updaterFactory(), cases)
 }

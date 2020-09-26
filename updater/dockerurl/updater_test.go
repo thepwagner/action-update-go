@@ -2,12 +2,10 @@ package dockerurl_test
 
 import (
 	"fmt"
-	"testing"
 
-	deepcopy "github.com/otiai10/copy"
-	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/updater"
 	"github.com/thepwagner/action-update-go/updater/dockerurl"
+	"github.com/thepwagner/action-update-go/updatertest"
 )
 
 //go:generate mockery --outpkg dockerurl_test --output . --testonly --name repoClient --structname mockRepoClient --filename mockrepoclient_test.go
@@ -26,14 +24,6 @@ var (
 	update  = updater.Update{Path: depPath, Previous: previousVersion, Next: nextVersion}
 )
 
-func updaterFromFixture(t *testing.T, fixture string) updater.Updater {
-	tempDir := tempDirFromFixture(t, fixture)
-	return dockerurl.NewUpdater(tempDir)
-}
-
-func tempDirFromFixture(t *testing.T, fixture string) string {
-	tempDir := t.TempDir()
-	err := deepcopy.Copy(fmt.Sprintf("testdata/%s", fixture), tempDir)
-	require.NoError(t, err)
-	return tempDir
+func updaterFactory(opts ...dockerurl.UpdaterOpt) updatertest.Factory {
+	return func(root string) updater.Updater { return dockerurl.NewUpdater(root, opts...) }
 }

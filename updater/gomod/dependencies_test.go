@@ -27,7 +27,6 @@ func TestUpdater_Dependencies_Fixtures(t *testing.T) {
 			{Path: "github.com/pkg/errors", Version: "v0.8.0"},
 		},
 	}
-	updatertest.DependenciesFixtures(t, func(t *testing.T, fixture string) updater.Updater {
-		return updaterFromFixture(t, fixture)
-	}, cases)
+
+	updatertest.DependenciesFixtures(t, updaterFactory(), cases)
 }
