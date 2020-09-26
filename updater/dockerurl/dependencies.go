@@ -6,8 +6,8 @@ import (
 
 	"github.com/moby/buildkit/frontend/dockerfile/command"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
-	"github.com/thepwagner/action-update-go/docker"
 	"github.com/thepwagner/action-update-go/updater"
+	"github.com/thepwagner/action-update-go/updater/docker"
 )
 
 func (u *Updater) Dependencies(_ context.Context) ([]updater.Dependency, error) {

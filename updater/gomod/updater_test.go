@@ -7,8 +7,8 @@ import (
 	deepcopy "github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update-go/gomod"
 	"github.com/thepwagner/action-update-go/updater"
+	"github.com/thepwagner/action-update-go/updater/gomod"
 )
 
 func updaterFromFixture(t *testing.T, fixture string, opts ...gomod.UpdaterOpt) *gomod.Updater {

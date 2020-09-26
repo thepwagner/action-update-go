@@ -1,4 +1,4 @@
-package handler
+package actions
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/cmd"
-	"github.com/thepwagner/action-update-go/gomod"
 	gitrepo "github.com/thepwagner/action-update-go/repo"
 	"github.com/thepwagner/action-update-go/updater"
+	"github.com/thepwagner/action-update-go/updater/gomod"
 )
 
 func Schedule(ctx context.Context, env *cmd.Environment, _ interface{}) error {
@@ -40,7 +40,7 @@ func Schedule(ctx context.Context, env *cmd.Environment, _ interface{}) error {
 	return nil
 }
 
-var _ Handler = Schedule
+var _ cmd.Handler = Schedule
 
 func getRepoUpdater(env *cmd.Environment) (updater.Repo, *updater.RepoUpdater, error) {
 	repo, err := git.PlainOpen(".")

@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update-go/gomod"
 	"github.com/thepwagner/action-update-go/updater"
+	"github.com/thepwagner/action-update-go/updater/gomod"
 )
 
 var goModFiles = []string{gomod.GoModFn, gomod.GoSumFn}

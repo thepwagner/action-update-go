@@ -7,7 +7,7 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update-go/docker"
+	"github.com/thepwagner/action-update-go/updater/docker"
 )
 
 func TestInterpolation_Interpolate(t *testing.T) {

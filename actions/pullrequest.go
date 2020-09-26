@@ -1,4 +1,4 @@
-package handler
+package actions
 
 import (
 	"context"
@@ -26,6 +26,8 @@ func PullRequest(ctx context.Context, env *cmd.Environment, evt interface{}) err
 	}
 	return nil
 }
+
+var _ cmd.Handler = PullRequest
 
 func prReopened(ctx context.Context, env *cmd.Environment, pr *github.PullRequestEvent) error {
 	_, updater, err := getRepoUpdater(env)

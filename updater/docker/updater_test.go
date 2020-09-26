@@ -6,8 +6,8 @@ import (
 
 	deepcopy "github.com/otiai10/copy"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update-go/docker"
 	"github.com/thepwagner/action-update-go/updater"
+	"github.com/thepwagner/action-update-go/updater/docker"
 )
 
 func updaterFromFixture(t *testing.T, fixture string) updater.Updater {

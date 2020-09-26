@@ -15,8 +15,8 @@ import (
 	"github.com/google/go-github/v32/github"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/sirupsen/logrus"
-	"github.com/thepwagner/action-update-go/docker"
 	"github.com/thepwagner/action-update-go/updater"
+	"github.com/thepwagner/action-update-go/updater/docker"
 )
 
 func (u *Updater) ApplyUpdate(ctx context.Context, update updater.Update) error {
