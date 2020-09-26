@@ -23,7 +23,7 @@ func tempDirFromFixture(t *testing.T, fixture string) string {
 	return tempDir
 }
 
-func TestUpdate_Major(t *testing.T) {
+func TestMajorPkg(t *testing.T) {
 	cases := map[string]struct {
 		major    []string
 		notMajor []string
