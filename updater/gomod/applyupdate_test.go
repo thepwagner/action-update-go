@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/updater"
 	"github.com/thepwagner/action-update-go/updater/gomod"
+	"github.com/thepwagner/action-update-go/updatertest"
 )
 
 var goModFiles = []string{gomod.GoModFn, gomod.GoSumFn}
@@ -154,7 +155,7 @@ func TestUpdater_ApplyUpdate_Replace(t *testing.T) {
 }
 
 func applyUpdateToFixture(t *testing.T, fixture string, up updater.Update, opts ...gomod.UpdaterOpt) string {
-	tempDir := tempDirFromFixture(t, fixture)
+	tempDir := updatertest.TempDirFromFixture(t, fixture)
 	goUpdater := gomod.NewUpdater(tempDir, opts...)
 	err := goUpdater.ApplyUpdate(context.Background(), up)
 	require.NoError(t, err)

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/thepwagner/action-update-go/updater"
+	"github.com/thepwagner/action-update-go/updater/gomod"
 	"github.com/thepwagner/action-update-go/updatertest"
 )
 
@@ -27,7 +28,7 @@ func TestUpdater_Dependencies_Fixtures(t *testing.T) {
 			{Path: "github.com/pkg/errors", Version: "v0.8.0"},
 		},
 	}
-	updatertest.DependenciesFixtures(t, func(t *testing.T, fixture string) updater.Updater {
-		return updaterFromFixture(t, fixture)
-	}, cases)
+
+	updaterFactory := func(root string) updater.Updater { return gomod.NewUpdater(root) }
+	updatertest.DependenciesFixtures(t, updaterFactory, cases)
 }

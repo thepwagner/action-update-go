@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/updater"
 	"github.com/thepwagner/action-update-go/updater/dockerurl"
+	"github.com/thepwagner/action-update-go/updatertest"
 )
 
 func TestUpdater_Check(t *testing.T) {
@@ -144,4 +145,9 @@ func TestUpdater_CheckLive(t *testing.T) {
 			}
 		})
 	}
+}
+
+func updaterFromFixture(t *testing.T, fixture string) updater.Updater {
+	tempDir := updatertest.TempDirFromFixture(t, fixture)
+	return dockerurl.NewUpdater(tempDir)
 }

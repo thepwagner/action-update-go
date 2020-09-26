@@ -10,10 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/updater"
 	"github.com/thepwagner/action-update-go/updater/dockerurl"
+	"github.com/thepwagner/action-update-go/updatertest"
 )
 
 func TestUpdater_ApplyUpdate_Simple(t *testing.T) {
-	tempDir := tempDirFromFixture(t, "simple")
+	tempDir := updatertest.TempDirFromFixture(t, "simple")
 	u := dockerurl.NewUpdater(tempDir)
 
 	err := u.ApplyUpdate(context.Background(), update)
@@ -33,7 +34,7 @@ func TestUpdater_ApplyUpdate_Simple(t *testing.T) {
 func TestUpdater_ApplyUpdate_Hash(t *testing.T) {
 	t.Skip("fetches zipfile")
 
-	tempDir := tempDirFromFixture(t, "hash")
+	tempDir := updatertest.TempDirFromFixture(t, "hash")
 	u := dockerurl.NewUpdater(tempDir)
 
 	err := u.ApplyUpdate(context.Background(), updater.Update{
