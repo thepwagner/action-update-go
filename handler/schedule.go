@@ -62,6 +62,6 @@ func getRepoUpdater(env *cmd.Environment) (updater.Repo, *updater.RepoUpdater, e
 	}
 
 	gomodUpdater := gomod.NewUpdater(modRepo.Root())
-	repoUpdater := updater.NewRepoUpdater(modRepo, gomodUpdater)
+	repoUpdater := updater.NewRepoUpdater(modRepo, gomodUpdater, updater.WithBatches(env.Batches()))
 	return gitRepo, repoUpdater, nil
 }

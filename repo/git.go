@@ -23,8 +23,6 @@ type GitRepo struct {
 	branch  string
 	author  GitIdentity
 	remotes bool
-
-	branchNamer UpdateBranchNamer
 }
 
 var _ updater.Repo = (*GitRepo)(nil)
@@ -67,12 +65,11 @@ func NewGitRepo(repo *git.Repository) (*GitRepo, error) {
 		branch = head.Name().Short()
 	}
 	return &GitRepo{
-		repo:        repo,
-		wt:          wt,
-		branch:      branch,
-		remotes:     len(remotes) > 0,
-		author:      DefaultGitIdentity,
-		branchNamer: DefaultUpdateBranchNamer{},
+		repo:    repo,
+		wt:      wt,
+		branch:  branch,
+		remotes: len(remotes) > 0,
+		author:  DefaultGitIdentity,
 	}, nil
 }
 
@@ -122,22 +119,21 @@ func (t *GitRepo) setBranch(refName plumbing.ReferenceName) error {
 	return nil
 }
 
-func (t *GitRepo) NewBranch(baseBranch string, update updater.Update) error {
-	branch := t.branchNamer.Format(baseBranch, update)
+func (t *GitRepo) NewBranch(base, branch string) error {
 	log := logrus.WithFields(logrus.Fields{
-		"base":   baseBranch,
+		"base":   base,
 		"branch": branch,
 	})
 	log.Debug("creating branch")
 
 	// Map string to a ref:
-	baseRef, err := t.repo.Reference(plumbing.NewBranchReferenceName(baseBranch), true)
+	baseRef, err := t.repo.Reference(plumbing.NewBranchReferenceName(base), true)
 	if err != nil {
 		if err != plumbing.ErrReferenceNotFound {
 			return fmt.Errorf("querying branch ref: %w", err)
 		}
 		log.Debug("not found locally, checking remote")
-		remoteRef, err := t.repo.Reference(plumbing.NewRemoteReferenceName(RemoteName, baseBranch), true)
+		remoteRef, err := t.repo.Reference(plumbing.NewRemoteReferenceName(RemoteName, base), true)
 		if err != nil {
 			return fmt.Errorf("querying remote branch ref: %w", err)
 		}
@@ -237,28 +233,4 @@ func (t *GitRepo) push(ctx context.Context) error {
 	}
 	logrus.Debug("pushed to remote")
 	return nil
-}
-
-func (t *GitRepo) Updates(_ context.Context) (updater.UpdatesByBranch, error) {
-	branches, err := t.repo.Branches()
-	if err != nil {
-		return nil, fmt.Errorf("iterating branches: %w", err)
-	}
-	defer branches.Close()
-
-	ret := updater.UpdatesByBranch{}
-	addToIndex := func(ref *plumbing.Reference) error {
-		if base, update := t.branchNamer.Parse(ref.Name().Short()); update != nil {
-			ret.AddOpen(base, *update)
-		}
-		return nil
-	}
-	if err := branches.ForEach(addToIndex); err != nil {
-		return nil, fmt.Errorf("indexing branches: %w", err)
-	}
-	return ret, nil
-}
-
-func (t *GitRepo) Parse(b string) (string, *updater.Update) {
-	return t.branchNamer.Parse(b)
 }

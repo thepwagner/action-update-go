@@ -15,6 +15,7 @@ type Environment struct {
 	GitHubEventPath  string `env:"GITHUB_EVENT_PATH"`
 	GitHubRepository string `env:"GITHUB_REPOSITORY"`
 
+	InputBatches  string `env:"INPUT_BATCHES"`
 	InputBranches string `env:"INPUT_BRANCHES"`
 	GitHubToken   string `env:"INPUT_TOKEN"`
 	InputLogLevel string `env:"INPUT_LOG_LEVEL" envDefault:"debug"`
@@ -25,6 +26,11 @@ func ParseEnvironment() (*Environment, error) {
 	if err := env.Parse(&e); err != nil {
 		return nil, fmt.Errorf("parsing environment: %w", err)
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"branches": len(e.Branches()),
+		"batches":  len(e.Batches()),
+	}).Info("parsed environment")
 	return &e, nil
 }
 
@@ -54,6 +60,24 @@ func (e *Environment) Branches() (branches []string) {
 		}
 	}
 	return
+}
+
+func (e *Environment) Batches() map[string][]string {
+	lines := strings.Split(e.InputBatches, "\n")
+	m := make(map[string][]string, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if split := strings.SplitN(line, ":", 2); len(split) == 2 {
+			prefixes := strings.Split(split[1], ",")
+
+			clean := make([]string, 0, len(prefixes))
+			for _, s := range prefixes {
+				clean = append(clean, strings.TrimSpace(s))
+			}
+			m[strings.TrimSpace(split[0])] = clean
+		}
+	}
+	return m
 }
 
 func (e *Environment) LogLevel() logrus.Level {

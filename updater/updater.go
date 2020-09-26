@@ -9,9 +9,10 @@ import (
 
 // RepoUpdater creates branches proposing all available updates for a Go module.
 type RepoUpdater struct {
-	repo    Repo
-	updater Updater
-	Batch   bool
+	repo        Repo
+	updater     Updater
+	batchConfig map[string][]string
+	branchNamer UpdateBranchNamer
 }
 
 // Repo interfaces with an SCM repository, probably Git.
@@ -22,17 +23,12 @@ type Repo interface {
 	// SetBranch changes to an existing branch.
 	SetBranch(branch string) error
 	// NewBranch creates and changes to a new branch.
-	// FIXME: branch naming should be done by Updater, not Repo
-	NewBranch(baseBranch string, update Update) error
+	NewBranch(base, branch string) error
 	// Branch returns the current branch.
 	Branch() string
 	// Push snapshots the working tree after an update has been applied, and "publishes".
 	// This is branch to commit. Publishing may mean push, create a PR, tweet the maintainer, whatever.
 	Push(context.Context, Update) error
-	// OpenUpdates returns any existing updates in the repo.
-	Updates(context.Context) (UpdatesByBranch, error)
-	// Parse matches a branch name that may be an update. Nil if not an update branch
-	Parse(string) (baseBranch string, update *Update)
 }
 
 type Updater interface {
@@ -42,16 +38,29 @@ type Updater interface {
 }
 
 // NewRepoUpdater creates RepoUpdater.
-func NewRepoUpdater(repo Repo, updater Updater) *RepoUpdater {
-	return &RepoUpdater{
-		repo:    repo,
-		updater: updater,
+func NewRepoUpdater(repo Repo, updater Updater, opts ...RepoUpdaterOpt) *RepoUpdater {
+	u := &RepoUpdater{
+		repo:        repo,
+		updater:     updater,
+		branchNamer: DefaultUpdateBranchNamer{},
+	}
+	for _, opt := range opts {
+		opt(u)
+	}
+	return u
+}
+
+type RepoUpdaterOpt func(*RepoUpdater)
+
+func WithBatches(batchConfig map[string][]string) RepoUpdaterOpt {
+	return func(u *RepoUpdater) {
+		u.batchConfig = batchConfig
 	}
 }
 
 // Update creates a single update branch in the Repo.
 func (u *RepoUpdater) Update(ctx context.Context, baseBranch string, update Update) error {
-	if err := u.repo.NewBranch(baseBranch, update); err != nil {
+	if err := u.repo.NewBranch(baseBranch, u.branchNamer.Format(baseBranch, update)); err != nil {
 		return fmt.Errorf("switching to target branch: %w", err)
 	}
 
@@ -68,21 +77,22 @@ func (u *RepoUpdater) Update(ctx context.Context, baseBranch string, update Upda
 
 // UpdateAll creates updates from a base branch in the Repo.
 func (u *RepoUpdater) UpdateAll(ctx context.Context, branches ...string) error {
-	updatesByBranch, err := u.repo.Updates(ctx)
-	if err != nil {
-		return fmt.Errorf("listing open updates: %w", err)
-	}
-
 	multiBranch := len(branches) > 1
 	for _, branch := range branches {
-		if err := u.updateBranch(ctx, multiBranch, branch, updatesByBranch); err != nil {
+		var log logrus.FieldLogger
+		if multiBranch {
+			log = logrus.WithField("branch", branch)
+		} else {
+			log = logrus.StandardLogger()
+		}
+		if err := u.updateBranch(ctx, log, branch); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (u *RepoUpdater) updateBranch(ctx context.Context, multiBranch bool, branch string, updatesByBranch UpdatesByBranch) error {
+func (u *RepoUpdater) updateBranch(ctx context.Context, log logrus.FieldLogger, branch string) error {
 	// Switch to base branch:
 	if err := u.repo.SetBranch(branch); err != nil {
 		return fmt.Errorf("switch to base branch: %w", err)
@@ -93,53 +103,53 @@ func (u *RepoUpdater) updateBranch(ctx context.Context, multiBranch bool, branch
 	if err != nil {
 		return fmt.Errorf("getting dependencies: %w", err)
 	}
+	batches := GroupDependencies(u.batchConfig, deps)
+	log.WithFields(logrus.Fields{
+		"deps":    len(deps),
+		"batches": len(batches),
+	}).Info("parsed dependencies, checking for updates")
 
-	var log logrus.FieldLogger
-	if multiBranch {
-		log = logrus.WithField("branch", branch)
-	} else {
-		log = logrus.StandardLogger()
-	}
-	log.WithField("deps", len(deps)).Info("parsed dependencies, checking for updates")
+	updates := 0
+	for batchBranch, batchDeps := range batches {
+		// Iterate dependencies, collecting updates:
+		var batchUpdates []Update
+		for _, dep := range batchDeps {
+			// Is an update available for this dependency?
+			depLog := log.WithField("path", dep.Path)
+			update := u.checkForUpdate(ctx, depLog, dep)
+			if update == nil {
+				continue
+			}
+			// There is an update to apply
+			depLog.WithField("next_version", update.Next).Debug("update available")
+			batchUpdates = append(batchUpdates, *update)
+		}
 
-	// Iterate dependencies, collecting updates:
-	existingUpdates := updatesByBranch[branch]
-	var updates []Update
-	for _, dep := range deps {
-		// Is an update available for this dependency?
-		depLog := log.WithField("path", dep.Path)
-		update := u.checkForUpdate(ctx, depLog, existingUpdates, dep)
-		if update == nil {
+		if len(batchUpdates) == 0 {
 			continue
 		}
 
-		// There is an update to apply
-		depLog = depLog.WithField("next_version", update.Next)
-		updates = append(updates, *update)
-
-		// When not batching, delegate to the standalone .Update() process
-		if !u.Batch {
-			if err := u.Update(ctx, branch, *update); err != nil {
-				depLog.WithError(err).Warn("error applying update")
-				continue
+		if batchBranch != "" {
+			if err := u.batchedUpdate(ctx, branch, batchBranch, batchUpdates); err != nil {
+				return err
+			}
+		} else {
+			if err := u.serialUpdates(ctx, branch, batchUpdates); err != nil {
+				return err
 			}
 		}
-	}
 
-	if u.Batch {
-		if err := u.batchedUpdate(ctx, branch, updates); err != nil {
-			return err
-		}
+		updates += len(batchUpdates)
 	}
-
 	log.WithFields(logrus.Fields{
 		"deps":    len(deps),
-		"updates": len(updates),
+		"updates": updates,
 	}).Info("checked for updates")
+
 	return nil
 }
 
-func (u *RepoUpdater) checkForUpdate(ctx context.Context, log logrus.FieldLogger, existing Updates, dep Dependency) *Update {
+func (u *RepoUpdater) checkForUpdate(ctx context.Context, log logrus.FieldLogger, dep Dependency) *Update {
 	update, err := u.updater.Check(ctx, dep)
 	if err != nil {
 		log.WithError(err).Warn("error checking for updates")
@@ -149,25 +159,28 @@ func (u *RepoUpdater) checkForUpdate(ctx context.Context, log logrus.FieldLogger
 		return nil
 	}
 
-	if existing := existing.Filter(*update); existing != "" {
-		// XXX: can we link to the conflict? (e.g. PR url)
-		log.WithFields(logrus.Fields{
-			"next_version":     update.Next,
-			"existing_version": existing,
-		}).Info("filtering existing version")
-		return nil
-	}
 	return update
 }
 
-func (u *RepoUpdater) batchedUpdate(ctx context.Context, branch string, updates []Update) error {
-	// XXX: better ideas here, this was quick
-	batchUpdate := Update{
-		Path: "github.com/thepwagner/action-update-go",
-		Next: "BATCH",
+func (u *RepoUpdater) serialUpdates(ctx context.Context, base string, updates []Update) error {
+	for _, update := range updates {
+		branch := u.branchNamer.Format(base, update)
+		if err := u.repo.NewBranch(base, branch); err != nil {
+			return fmt.Errorf("switching to target branch: %w", err)
+		}
+		if err := u.updater.ApplyUpdate(ctx, update); err != nil {
+			return fmt.Errorf("applying batched update: %w", err)
+		}
+		if err := u.repo.Push(ctx, update); err != nil {
+			return fmt.Errorf("pushing update: %w", err)
+		}
 	}
+	return nil
+}
 
-	if err := u.repo.NewBranch(branch, batchUpdate); err != nil {
+func (u *RepoUpdater) batchedUpdate(ctx context.Context, base, batchName string, updates []Update) error {
+	branch := u.branchNamer.FormatBatch(base, batchName)
+	if err := u.repo.NewBranch(base, branch); err != nil {
 		return fmt.Errorf("switching to target branch: %w", err)
 	}
 
@@ -177,8 +190,21 @@ func (u *RepoUpdater) batchedUpdate(ctx context.Context, branch string, updates 
 		}
 	}
 
-	if err := u.repo.Push(ctx, batchUpdate); err != nil {
+	var update Update
+	if len(updates) == 1 {
+		update = updates[0]
+	} else {
+		// TODO: awkward for GitHubRepo, which will try to link a changelog here?
+		update = Update{Path: branch}
+	}
+
+	if err := u.repo.Push(ctx, update); err != nil {
 		return fmt.Errorf("pushing update: %w", err)
 	}
+
 	return nil
+}
+
+func (u *RepoUpdater) Parse(branch string) (baseBranch string, update *Update) {
+	return u.branchNamer.Parse(branch)
 }
