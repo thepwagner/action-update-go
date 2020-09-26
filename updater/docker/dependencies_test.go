@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/thepwagner/action-update-go/updater"
-	"github.com/thepwagner/action-update-go/updater/docker"
 	"github.com/thepwagner/action-update-go/updatertest"
 )
 
@@ -19,6 +18,5 @@ func TestUpdater_Dependencies(t *testing.T) {
 			{Path: "alpine", Version: "3.11.0"},
 		},
 	}
-	updaterFactory := func(root string) updater.Updater { return docker.NewUpdater(root) }
-	updatertest.DependenciesFixtures(t, updaterFactory, cases)
+	updatertest.DependenciesFixtures(t, updaterFactory(), cases)
 }
