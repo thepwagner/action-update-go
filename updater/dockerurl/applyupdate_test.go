@@ -1,7 +1,6 @@
 package dockerurl_test
 
 import (
-	"context"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
@@ -9,16 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/updater"
-	"github.com/thepwagner/action-update-go/updater/dockerurl"
 	"github.com/thepwagner/action-update-go/updatertest"
 )
 
 func TestUpdater_ApplyUpdate_Simple(t *testing.T) {
-	tempDir := updatertest.TempDirFromFixture(t, "simple")
-	u := dockerurl.NewUpdater(tempDir)
-
-	err := u.ApplyUpdate(context.Background(), update)
-	require.NoError(t, err)
+	tempDir := updatertest.ApplyUpdateToFixture(t, "simple", updaterFactory(), update)
 
 	b, err := ioutil.ReadFile(filepath.Join(tempDir, "Dockerfile"))
 	require.NoError(t, err)
@@ -34,15 +28,12 @@ func TestUpdater_ApplyUpdate_Simple(t *testing.T) {
 func TestUpdater_ApplyUpdate_Hash(t *testing.T) {
 	t.Skip("fetches zipfile")
 
-	tempDir := updatertest.TempDirFromFixture(t, "hash")
-	u := dockerurl.NewUpdater(tempDir)
-
-	err := u.ApplyUpdate(context.Background(), updater.Update{
+	elixirUpdate := updater.Update{
 		Path:     "github.com/elixir-lang/elixir/releases",
 		Previous: "v1.10.3",
 		Next:     "v1.10.4",
-	})
-	require.NoError(t, err)
+	}
+	tempDir := updatertest.ApplyUpdateToFixture(t, "hash", updaterFactory(), elixirUpdate)
 
 	b, err := ioutil.ReadFile(filepath.Join(tempDir, "Dockerfile"))
 	require.NoError(t, err)

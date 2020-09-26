@@ -1,7 +1,6 @@
 package gomod_test
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -23,7 +22,8 @@ var pkgErrors081 = updater.Update{
 }
 
 func TestUpdater_ApplyUpdate_Simple(t *testing.T) {
-	tempDir := applyUpdateToFixture(t, "simple", pkgErrors081)
+	tempDir := updatertest.ApplyUpdateToFixture(t, "simple", updaterFactory(), pkgErrors081)
+
 	for _, fn := range goModFiles {
 		b, err := ioutil.ReadFile(filepath.Join(tempDir, fn))
 		require.NoError(t, err)
@@ -39,7 +39,7 @@ func TestUpdater_ApplyUpdate_Simple(t *testing.T) {
 }
 
 func TestUpdater_ApplyUpdate_Simple_NoTidy(t *testing.T) {
-	tempDir := applyUpdateToFixture(t, "simple", pkgErrors081, gomod.WithTidy(false))
+	tempDir := updatertest.ApplyUpdateToFixture(t, "simple", updaterFactory(gomod.WithTidy(false)), pkgErrors081)
 
 	b, err := ioutil.ReadFile(filepath.Join(tempDir, gomod.GoModFn))
 	require.NoError(t, err)
@@ -55,7 +55,7 @@ func TestUpdater_ApplyUpdate_Simple_NoTidy(t *testing.T) {
 }
 
 func TestUpdater_ApplyUpdate_Vendor(t *testing.T) {
-	tempDir := applyUpdateToFixture(t, "vendor", pkgErrors081)
+	tempDir := updatertest.ApplyUpdateToFixture(t, "vendor", updaterFactory(), pkgErrors081)
 
 	b, err := ioutil.ReadFile(filepath.Join(tempDir, gomod.VendorModulesFn))
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestUpdater_ApplyUpdate_Major(t *testing.T) {
 		Previous: "v5.1.4",
 		Next:     "v6.2.0",
 	}
-	tempDir := applyUpdateToFixture(t, "major", env6, gomod.WithMajorVersions(true))
+	tempDir := updatertest.ApplyUpdateToFixture(t, "major", updaterFactory(gomod.WithMajorVersions(true)), env6)
 
 	// Path is renamed in module files:
 	for _, fn := range goModFiles {
@@ -99,7 +99,7 @@ func TestUpdater_ApplyUpdate_Major(t *testing.T) {
 }
 
 func TestUpdater_ApplyUpdate_NotInRoot(t *testing.T) {
-	tempDir := applyUpdateToFixture(t, "notinroot", pkgErrors081)
+	tempDir := updatertest.ApplyUpdateToFixture(t, "notinroot", updaterFactory(), pkgErrors081)
 
 	// Path is renamed in module files:
 	for _, fn := range goModFiles {
@@ -131,10 +131,11 @@ func TestUpdater_ApplyUpdate_NotInRoot(t *testing.T) {
 }
 
 func TestUpdater_ApplyUpdate_Replace(t *testing.T) {
-	tempDir := applyUpdateToFixture(t, "replace", updater.Update{
+	replacement := updater.Update{
 		Path: "github.com/thepwagner/errors",
 		Next: "v0.8.1",
-	})
+	}
+	tempDir := updatertest.ApplyUpdateToFixture(t, "replace", updaterFactory(), replacement)
 
 	b, err := ioutil.ReadFile(filepath.Join(tempDir, gomod.GoModFn))
 	require.NoError(t, err)
@@ -152,12 +153,4 @@ func TestUpdater_ApplyUpdate_Replace(t *testing.T) {
 	assert.NotContains(t, goSum, "github.com/pkg/errors")
 	assert.NotContains(t, goSum, "github.com/thepwagner/errors v0.8.0")
 	assert.Contains(t, goSum, "github.com/thepwagner/errors v0.8.1")
-}
-
-func applyUpdateToFixture(t *testing.T, fixture string, up updater.Update, opts ...gomod.UpdaterOpt) string {
-	tempDir := updatertest.TempDirFromFixture(t, fixture)
-	goUpdater := gomod.NewUpdater(tempDir, opts...)
-	err := goUpdater.ApplyUpdate(context.Background(), up)
-	require.NoError(t, err)
-	return tempDir
 }
