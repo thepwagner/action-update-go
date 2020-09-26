@@ -4,14 +4,14 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
-	"github.com/thepwagner/action-update-go/handler"
+	"github.com/thepwagner/action-update-go/actions"
 )
 
 var handlers = HandlersByEventName{
-	"issue_comment":     handler.IssueComment,
-	"pull_request":      handler.PullRequest,
-	"schedule":          handler.Schedule,
-	"workflow_dispatch": handler.Schedule,
+	"issue_comment":     actions.IssueComment,
+	"pull_request":      actions.PullRequest,
+	"schedule":          actions.Schedule,
+	"workflow_dispatch": actions.Schedule,
 }
 
 func main() {

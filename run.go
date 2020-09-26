@@ -5,12 +5,13 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
+	"github.com/thepwagner/action-update-go/actions"
 	"github.com/thepwagner/action-update-go/cmd"
-	"github.com/thepwagner/action-update-go/handler"
 )
 
-type HandlersByEventName map[string]handler.Handler
+type HandlersByEventName map[string]actions.Handler
 
+// Run invokes a handler by event name. Assumes Actions environment.
 func Run(ctx context.Context, handlers HandlersByEventName) error {
 	env, err := cmd.ParseEnvironment()
 	if err != nil {
