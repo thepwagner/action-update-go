@@ -184,6 +184,7 @@ gopkg.in/warnings.v0
 # gopkg.in/yaml.v2 v2.2.8
 ## explicit
 # gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+## explicit
 gopkg.in/yaml.v3
 # github.com/containerd/containerd => github.com/containerd/containerd v1.4.0
 # github.com/docker/docker => github.com/moby/moby v17.12.0-ce-rc1.0.20200916142827-bd33bbf0497b+incompatible

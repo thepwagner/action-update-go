@@ -8,6 +8,7 @@ import (
 	"github.com/caarlos0/env/v5"
 	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 type Environment struct {
@@ -57,21 +58,26 @@ func (e *Environment) Branches() (branches []string) {
 	return
 }
 
-func (e *Environment) Batches() map[string][]string {
-	lines := strings.Split(e.InputBatches, "\n")
-	m := make(map[string][]string, len(lines))
-	for _, line := range lines {
-		if split := strings.SplitN(line, ":", 2); len(split) == 2 {
-			prefixes := strings.Split(split[1], ",")
-
-			clean := make([]string, 0, len(prefixes))
-			for _, s := range prefixes {
-				clean = append(clean, strings.TrimSpace(s))
-			}
-			m[strings.TrimSpace(split[0])] = clean
-		}
+func (e *Environment) Batches() (map[string][]string, error) {
+	raw := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(e.InputBatches), &raw); err != nil {
+		return nil, fmt.Errorf("decoding batches yaml: %w", err)
 	}
-	return m
+
+	m := make(map[string][]string, len(raw))
+	for key, value := range raw {
+		var prefixes []string
+		switch v := value.(type) {
+		case []interface{}:
+			for _, s := range v {
+				prefixes = append(prefixes, fmt.Sprintf("%v", s))
+			}
+		case string:
+			prefixes = append(prefixes, v)
+		}
+		m[key] = prefixes
+	}
+	return m, nil
 }
 
 func (e *Environment) LogLevel() logrus.Level {

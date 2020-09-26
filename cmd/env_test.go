@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEnvironment_LogLevel(t *testing.T) {
@@ -26,35 +26,40 @@ func TestEnvironment_LogLevel(t *testing.T) {
 
 func TestEnvironment_Batches(t *testing.T) {
 	cases := []struct {
-		lines   []string
+		input   string
 		batches map[string][]string
 	}{
 		{
-			lines:   []string{"foo:bar,baz"},
+			input:   `foo: [bar, baz]`,
 			batches: map[string][]string{"foo": {"bar", "baz"}},
 		},
 		{
-			lines: []string{"foo:bar", "foz:baz"},
+			input: `---
+foo: bar
+foz: baz`,
 			batches: map[string][]string{
 				"foo": {"bar"},
 				"foz": {"baz"},
 			},
 		},
-
 		{
-			lines: []string{"  foo : bar,  baz"},
+			input: `foo:
+- bar
+- baz`,
 			batches: map[string][]string{
 				"foo": {"bar", "baz"},
 			},
 		},
 		{
-			lines:   []string{"no colon, ignored"},
+			input:   "",
 			batches: map[string][]string{},
 		},
 	}
 
 	for _, tc := range cases {
-		e := Environment{InputBatches: strings.Join(tc.lines, "\n")}
-		assert.Equal(t, tc.batches, e.Batches())
+		e := Environment{InputBatches: tc.input}
+		b, err := e.Batches()
+		require.NoError(t, err)
+		assert.Equal(t, tc.batches, b)
 	}
 }
