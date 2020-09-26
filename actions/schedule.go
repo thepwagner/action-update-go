@@ -40,7 +40,7 @@ func Schedule(ctx context.Context, env *cmd.Environment, _ interface{}) error {
 	return nil
 }
 
-var _ Handler = Schedule
+var _ cmd.Handler = Schedule
 
 func getRepoUpdater(env *cmd.Environment) (updater.Repo, *updater.RepoUpdater, error) {
 	repo, err := git.PlainOpen(".")

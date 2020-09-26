@@ -1,4 +1,4 @@
-package main
+package cmd_test
 
 import (
 	"context"
@@ -21,7 +21,7 @@ func TestRun(t *testing.T) {
 	_ = os.Setenv("GITHUB_EVENT_PATH", eventPath)
 
 	ctx := context.Background()
-	err = Run(ctx, HandlersByEventName{
+	err = cmd.Run(ctx, cmd.HandlersByEventName{
 		"issue_comment": func(_ context.Context, env *cmd.Environment, evt interface{}) error {
 			assert.Equal(t, eventPath, env.GitHubEventPath)
 			assert.IsType(t, &github.IssueCommentEvent{}, evt)

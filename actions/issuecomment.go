@@ -19,4 +19,4 @@ func IssueComment(_ context.Context, _ *cmd.Environment, evt interface{}) error 
 	return nil
 }
 
-var _ Handler = IssueComment
+var _ cmd.Handler = IssueComment

@@ -5,9 +5,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/actions"
+	"github.com/thepwagner/action-update-go/cmd"
 )
 
-var handlers = HandlersByEventName{
+var handlers = cmd.HandlersByEventName{
 	"issue_comment":     actions.IssueComment,
 	"pull_request":      actions.PullRequest,
 	"schedule":          actions.Schedule,
@@ -16,7 +17,7 @@ var handlers = HandlersByEventName{
 
 func main() {
 	ctx := context.Background()
-	if err := Run(ctx, handlers); err != nil {
+	if err := cmd.Run(ctx, handlers); err != nil {
 		logrus.WithError(err).Fatal("failed")
 	}
 }
