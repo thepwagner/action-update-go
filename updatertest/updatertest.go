@@ -18,16 +18,8 @@ func TempDirFromFixture(t *testing.T, fixture string) string {
 	return tempDir
 }
 
-// Factory provides UpdaterS for testing
+// Factory provides UpdaterS for testing, masking any arguments other than the repo root.
 type Factory func(root string) updater.Updater
-
-func ApplyUpdateToFixture(t *testing.T, fixture string, factory Factory, up updater.Update) string {
-	tempDir := TempDirFromFixture(t, fixture)
-	u := factory(tempDir)
-	err := u.ApplyUpdate(context.Background(), up)
-	require.NoError(t, err)
-	return tempDir
-}
 
 // DependenciesFixtures verifies .Dependencies() on an Updater initialized from a fixture.
 func DependenciesFixtures(t *testing.T, factory Factory, cases map[string][]updater.Dependency) {
@@ -40,4 +32,20 @@ func DependenciesFixtures(t *testing.T, factory Factory, cases map[string][]upda
 			assert.Equal(t, expected, deps)
 		})
 	}
+}
+
+func CheckInFixture(t *testing.T, fixture string, factory Factory, dep updater.Dependency) *updater.Update {
+	tempDir := TempDirFromFixture(t, fixture)
+	u := factory(tempDir)
+	update, err := u.Check(context.Background(), dep)
+	require.NoError(t, err)
+	return update
+}
+
+func ApplyUpdateToFixture(t *testing.T, fixture string, factory Factory, up updater.Update) string {
+	tempDir := TempDirFromFixture(t, fixture)
+	u := factory(tempDir)
+	err := u.ApplyUpdate(context.Background(), up)
+	require.NoError(t, err)
+	return tempDir
 }

@@ -10,13 +10,9 @@ import (
 	"github.com/thepwagner/action-update-go/updatertest"
 )
 
+// updaterFactory drives updatertest in other files
 func updaterFactory(opts ...gomod.UpdaterOpt) updatertest.Factory {
 	return func(root string) updater.Updater { return gomod.NewUpdater(root, opts...) }
-}
-
-func updaterFromFixture(t *testing.T, fixture string, opts ...gomod.UpdaterOpt) *gomod.Updater {
-	tempDir := updatertest.TempDirFromFixture(t, fixture)
-	return gomod.NewUpdater(tempDir, opts...)
 }
 
 func TestMajorPkg(t *testing.T) {

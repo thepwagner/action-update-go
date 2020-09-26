@@ -8,7 +8,6 @@ import (
 	"github.com/google/go-github/v32/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update-go/updater"
 	"github.com/thepwagner/action-update-go/updater/dockerurl"
 	"github.com/thepwagner/action-update-go/updatertest"
@@ -53,18 +52,16 @@ func TestUpdater_Check(t *testing.T) {
 		t.Run(lbl, func(t *testing.T) {
 			rc := &mockRepoClient{}
 			rc.On("ListReleases", ctx, depOwner, depRepoName, mock.Anything).Return(tc.releases, nil, nil)
-			u := dockerurl.NewUpdater("", dockerurl.WithRepoClient(rc))
 
-			update, err := u.Check(ctx, dep)
-			require.NoError(t, err)
+			u := updatertest.CheckInFixture(t, "simple", updaterFactory(dockerurl.WithRepoClient(rc)), dep)
 			if tc.update == nil {
-				assert.Nil(t, update)
+				assert.Nil(t, u)
 			} else {
 				assert.Equal(t, &updater.Update{
 					Path:     depPath,
 					Previous: previousVersion,
 					Next:     *tc.update,
-				}, update)
+				}, u)
 			}
 
 			rc.AssertExpectations(t)
@@ -93,7 +90,6 @@ func TestUpdater_Check_Error(t *testing.T) {
 func TestUpdater_CheckLive(t *testing.T) {
 	t.Skip("hardcodes assumptions about latest releases")
 
-	u := updaterFromFixture(t, "simple")
 	cases := []struct {
 		dep  updater.Dependency
 		next *string
@@ -135,19 +131,12 @@ func TestUpdater_CheckLive(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.dep.Path, func(t *testing.T) {
-			upd, err := u.Check(context.Background(), tc.dep)
-			require.NoError(t, err)
-
+			u := updatertest.CheckInFixture(t, "simple", updaterFactory(), tc.dep)
 			if tc.next == nil {
-				assert.Nil(t, upd)
-			} else if assert.NotNil(t, upd, "no update") {
-				assert.Equal(t, *tc.next, upd.Next)
+				assert.Nil(t, u)
+			} else if assert.NotNil(t, u, "no update") {
+				assert.Equal(t, *tc.next, u.Next)
 			}
 		})
 	}
-}
-
-func updaterFromFixture(t *testing.T, fixture string) updater.Updater {
-	tempDir := updatertest.TempDirFromFixture(t, fixture)
-	return dockerurl.NewUpdater(tempDir)
 }
