@@ -7,8 +7,8 @@ import (
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update-go/gomod"
 	"github.com/thepwagner/action-update-go/updater"
+	"github.com/thepwagner/action-update-go/updater/gomod"
 )
 
 var goGitHub29 = updater.Dependency{

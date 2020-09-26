@@ -6,8 +6,8 @@ import (
 
 	deepcopy "github.com/otiai10/copy"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update-go/dockerurl"
 	"github.com/thepwagner/action-update-go/updater"
+	"github.com/thepwagner/action-update-go/updater/dockerurl"
 )
 
 //go:generate mockery --outpkg dockerurl_test --output . --testonly --name repoClient --structname mockRepoClient --filename mockrepoclient_test.go

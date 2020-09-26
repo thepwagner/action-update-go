@@ -7,9 +7,9 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/cmd"
-	"github.com/thepwagner/action-update-go/gomod"
 	gitrepo "github.com/thepwagner/action-update-go/repo"
 	"github.com/thepwagner/action-update-go/updater"
+	"github.com/thepwagner/action-update-go/updater/gomod"
 )
 
 func Schedule(ctx context.Context, env *cmd.Environment, _ interface{}) error {
