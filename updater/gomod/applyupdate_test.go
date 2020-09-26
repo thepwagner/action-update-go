@@ -129,6 +129,30 @@ func TestUpdater_ApplyUpdate_NotInRoot(t *testing.T) {
 	assert.Equal(t, []string{"cmd/main.go", "go.mod", "go.sum"}, files, "update added/removed files")
 }
 
+func TestUpdater_ApplyUpdate_Replace(t *testing.T) {
+	tempDir := applyUpdateToFixture(t, "replace", updater.Update{
+		Path: "github.com/thepwagner/errors",
+		Next: "v0.8.1",
+	})
+
+	b, err := ioutil.ReadFile(filepath.Join(tempDir, gomod.GoModFn))
+	require.NoError(t, err)
+	goMod := string(b)
+
+	// Base version unchanged:
+	assert.Contains(t, goMod, "github.com/pkg/errors v0.8.0")
+	// Replacement changed:
+	assert.NotContains(t, goMod, "github.com/thepwagner/errors v0.8.0")
+	assert.Contains(t, goMod, "github.com/thepwagner/errors v0.8.1")
+
+	b, err = ioutil.ReadFile(filepath.Join(tempDir, gomod.GoSumFn))
+	require.NoError(t, err)
+	goSum := string(b)
+	assert.NotContains(t, goSum, "github.com/pkg/errors")
+	assert.NotContains(t, goSum, "github.com/thepwagner/errors v0.8.0")
+	assert.Contains(t, goSum, "github.com/thepwagner/errors v0.8.1")
+}
+
 func applyUpdateToFixture(t *testing.T, fixture string, up updater.Update, opts ...gomod.UpdaterOpt) string {
 	tempDir := tempDirFromFixture(t, fixture)
 	goUpdater := gomod.NewUpdater(tempDir, opts...)

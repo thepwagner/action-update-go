@@ -52,7 +52,7 @@ func (u *Updater) ApplyUpdate(ctx context.Context, up updater.Update) error {
 	return nil
 }
 
-func (u *Updater) updateGoMod(up updater.Update) error {
+func (u *Updater) updateGoMod(update updater.Update) error {
 	goModPath := filepath.Join(u.root, GoModFn)
 	b, err := ioutil.ReadFile(goModPath)
 	if err != nil {
@@ -63,17 +63,8 @@ func (u *Updater) updateGoMod(up updater.Update) error {
 		return fmt.Errorf("parsing go.mod: %w", err)
 	}
 
-	if MajorPkg(up) {
-		// Replace foo.bar/v2 with foo.bar/v3:
-		if err := goMod.DropRequire(up.Path); err != nil {
-			return fmt.Errorf("dropping requirement: %w", err)
-		}
-		pkgNext := path.Join(path.Dir(up.Path), semver.Major(up.Next))
-		if err := goMod.AddRequire(pkgNext, up.Next); err != nil {
-			return fmt.Errorf("dropping requirement: %w", err)
-		}
-	} else if err := goMod.AddRequire(up.Path, up.Next); err != nil {
-		return fmt.Errorf("adding requirement: %w", err)
+	if err := patchParsedGoMod(goMod, update); err != nil {
+		return err
 	}
 
 	updated, err := goMod.Format()
@@ -92,6 +83,43 @@ func (u *Updater) updateGoMod(up updater.Update) error {
 		return fmt.Errorf("writing updated go.mod: %w", err)
 	}
 	return nil
+}
+
+func patchParsedGoMod(goMod *modfile.File, update updater.Update) error {
+	// TODO: these can be combined (e.g. a major update via replacement)
+	if MajorPkg(update) {
+		if err := goMod.DropRequire(update.Path); err != nil {
+			return fmt.Errorf("dropping requirement: %w", err)
+		}
+		pkgNext := path.Join(path.Dir(update.Path), semver.Major(update.Next))
+		if err := goMod.AddRequire(pkgNext, update.Next); err != nil {
+			return fmt.Errorf("dropping requirement: %w", err)
+		}
+		return nil
+	}
+
+	// Search for this path in the existing requirements:
+	for _, req := range goMod.Require {
+		if req.Mod.Path == update.Path {
+			// Easiest case - replace the requirement
+			if err := goMod.AddRequire(update.Path, update.Next); err != nil {
+				return fmt.Errorf("adding requirement: %w", err)
+			}
+			return nil
+		}
+	}
+
+	// Search for this path in the replacements:
+	for _, rep := range goMod.Replace {
+		if rep.New.Path == update.Path {
+			if err := goMod.AddReplace(rep.Old.Path, rep.Old.Version, update.Path, update.Next); err != nil {
+				return fmt.Errorf("dropping requirement: %w", err)
+			}
+			return nil
+		}
+	}
+
+	return fmt.Errorf("could not update %q", update.Path)
 }
 
 func (u *Updater) updateSourceCode(up updater.Update) error {

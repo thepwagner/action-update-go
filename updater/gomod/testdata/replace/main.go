@@ -3,9 +3,10 @@ package main
 import (
 	"fmt"
 
-	_ "golang.org/x/crypto/hkdf"
+	"github.com/pkg/errors"
 )
 
 func main() {
-	fmt.Println("hkdf imported")
+	err := errors.New("kaboom")
+	fmt.Println(err)
 }

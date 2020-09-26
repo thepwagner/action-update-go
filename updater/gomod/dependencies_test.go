@@ -17,7 +17,7 @@ func TestUpdater_Dependencies_Fixtures(t *testing.T) {
 			{Path: "github.com/pkg/errors", Version: "v0.8.0"},
 		},
 		"replace": {
-			{Path: "github.com/ProtonMail/crypto", Version: "v0.0.0-20200818122824-ed5d25e28db8"},
+			{Path: "github.com/thepwagner/errors", Version: "v0.8.0"},
 		},
 		"simple": {
 			{Path: "github.com/pkg/errors", Version: "v0.8.0"},
