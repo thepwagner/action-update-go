@@ -89,11 +89,11 @@ func patchParsedGoMod(goMod *modfile.File, update updater.Update) error {
 	// TODO: these can be combined (e.g. a major update via replacement)
 	if MajorPkg(update) {
 		if err := goMod.DropRequire(update.Path); err != nil {
-			return fmt.Errorf("dropping requirement: %w", err)
+			return fmt.Errorf("dropping major requirement: %w", err)
 		}
 		pkgNext := path.Join(path.Dir(update.Path), semver.Major(update.Next))
 		if err := goMod.AddRequire(pkgNext, update.Next); err != nil {
-			return fmt.Errorf("dropping requirement: %w", err)
+			return fmt.Errorf("adding major requirement: %w", err)
 		}
 		return nil
 	}
@@ -113,7 +113,7 @@ func patchParsedGoMod(goMod *modfile.File, update updater.Update) error {
 	for _, rep := range goMod.Replace {
 		if rep.New.Path == update.Path {
 			if err := goMod.AddReplace(rep.Old.Path, rep.Old.Version, update.Path, update.Next); err != nil {
-				return fmt.Errorf("dropping requirement: %w", err)
+				return fmt.Errorf("adding replacement: %w", err)
 			}
 			return nil
 		}
