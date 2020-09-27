@@ -30,11 +30,18 @@ func TestUpdater_Check(t *testing.T) {
 			},
 			update: github.String(nextVersion),
 		},
-		"pre-release version available": {
+		"pre-release version available while stable": {
 			releases: []*github.RepositoryRelease{
 				{TagName: github.String(nextVersion), Prerelease: github.Bool(true)},
 			},
 			update: nil,
+		},
+		"pre-release version available while pre-release": {
+			releases: []*github.RepositoryRelease{
+				{TagName: github.String(previousVersion), Prerelease: github.Bool(true)},
+				{TagName: github.String(nextVersion), Prerelease: github.Bool(true)},
+			},
+			update: github.String(nextVersion),
 		},
 		"many versions available": {
 			releases: []*github.RepositoryRelease{

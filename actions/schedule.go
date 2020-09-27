@@ -9,6 +9,7 @@ import (
 	"github.com/thepwagner/action-update-go/cmd"
 	gitrepo "github.com/thepwagner/action-update-go/repo"
 	"github.com/thepwagner/action-update-go/updater"
+	"github.com/thepwagner/action-update-go/updater/dockerurl"
 	"github.com/thepwagner/action-update-go/updater/gomod"
 )
 
@@ -62,11 +63,23 @@ func getRepoUpdater(env *cmd.Environment) (updater.Repo, *updater.RepoUpdater, e
 		modRepo = gitRepo
 	}
 
-	gomodUpdater := gomod.NewUpdater(modRepo.Root())
+	modUpdater := getUpdater(modRepo.Root(), env.InputUpdater)
 	batches, err := env.Batches()
 	if err != nil {
 		return nil, nil, fmt.Errorf("parsing batches")
 	}
-	repoUpdater := updater.NewRepoUpdater(modRepo, gomodUpdater, updater.WithBatches(batches))
+	repoUpdater := updater.NewRepoUpdater(modRepo, modUpdater, updater.WithBatches(batches))
 	return gitRepo, repoUpdater, nil
+}
+
+func getUpdater(root, updaterName string) updater.Updater {
+	switch updaterName {
+	case "dockerurl":
+		return dockerurl.NewUpdater(root)
+	case "", "gomod", "gomodules":
+		return gomod.NewUpdater(root)
+	default:
+		logrus.WithField("updater", updaterName).Warn("unknown updater, defaulting to go modules")
+		return gomod.NewUpdater(root)
+	}
 }

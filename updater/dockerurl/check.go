@@ -8,6 +8,7 @@ import (
 
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 	"github.com/google/go-github/v32/github"
+	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/updater"
 )
 
@@ -28,9 +29,17 @@ func (u *Updater) checkGitHubRelease(ctx context.Context, dependency updater.Dep
 		return nil, nil
 	}
 
-	if semver.Compare(candidates[0], dependency.Version) > 0 {
-		return &updater.Update{Path: dependency.Path, Previous: dependency.Version, Next: candidates[0]}, nil
+	latest := candidates[0]
+	log := logrus.WithFields(logrus.Fields{
+		"path":            dependency.Path,
+		"latest_version":  latest,
+		"current_version": dependency.Version,
+	})
+	if semver.Compare(latest, dependency.Version) > 0 {
+		log.Info("update available")
+		return &updater.Update{Path: dependency.Path, Previous: dependency.Version, Next: latest}, nil
 	}
+	log.Debug("no update available")
 	return nil, nil
 }
 
@@ -40,21 +49,42 @@ func (u *Updater) listGitHubReleases(ctx context.Context, dependency updater.Dep
 	if err != nil {
 		return nil, fmt.Errorf("querying for releases: %w", err)
 	}
+	log := logrus.WithFields(logrus.Fields{
+		"owner": owner,
+		"repo":  name,
+	})
+	log.WithField("releases", len(releases)).Debug("fetched releases")
 
 	candidates := make([]string, 0, len(releases))
+	prereleases := make(map[string]struct{}, len(releases))
 	for _, release := range releases {
-		if release.GetDraft() || release.GetPrerelease() {
+		if release.GetDraft() {
 			continue
 		}
 		if !semver.IsValid(release.GetTagName()) {
 			continue
 		}
+
+		if release.GetPrerelease() {
+			prereleases[release.GetTagName()] = struct{}{}
+			continue
+		}
+
 		// maybe filter alpha/beta?
 		candidates = append(candidates, release.GetTagName())
+	}
+
+	// If the previous version was a pre-release, consider upgrading to pre-releases:
+	if _, ok := prereleases[dependency.Version]; ok {
+		log.Debug("including pre-releases")
+		for v := range prereleases {
+			candidates = append(candidates, v)
+		}
 	}
 
 	sort.SliceStable(candidates, func(i, j int) bool {
 		return semver.Compare(candidates[i], candidates[j]) > 0
 	})
+	log.WithField("candidates", len(candidates)).Debug("filtered releases")
 	return candidates, nil
 }
