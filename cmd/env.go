@@ -20,6 +20,7 @@ type Environment struct {
 	InputBranches string `env:"INPUT_BRANCHES"`
 	GitHubToken   string `env:"INPUT_TOKEN"`
 	InputLogLevel string `env:"INPUT_LOG_LEVEL" envDefault:"debug"`
+	InputUpdater  string `env:"INPUT_UPDATER"`
 }
 
 func ParseEnvironment() (*Environment, error) {

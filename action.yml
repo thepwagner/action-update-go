@@ -20,11 +20,14 @@ inputs:
     required: false
   batches:
     description: >
-      Configuration for grouping updates together, newline separated following format:
-        label:prefix1,prefix2
+      Configuration for grouping updates together, as a nested YAML of lists:
       e.g.
-        internal:github.com/thepwagner/
-        aws:github.com/aws
+        internal: [github.com/thepwagner/]
+        aws:
+          - github.com/aws
+    required: false
+  updater:
+    description: 'Updater to use. Development flag, will be removed'
     required: false
 runs:
   using: "composite"
@@ -43,3 +46,4 @@ runs:
         INPUT_BATCHES: ${{ inputs.batches }}
         INPUT_TOKEN: ${{ inputs.token }}
         INPUT_LOG_LEVEL: ${{ inputs.log_level }}
+        INPUT_UPDATER: ${{ inputs.updater }}
