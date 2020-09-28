@@ -105,17 +105,19 @@ func (u *Updater) updatedHash(ctx context.Context, update updater.Update, oldHas
 	// First pass, does the project release a SHASUMS etc file we can grab?
 	for _, prevAsset := range prevRelease.Assets {
 		log := logrus.WithField("name", prevAsset.GetName())
-		if h, err := u.isShasumAsset(ctx, prevAsset, oldHash); err != nil {
+		oldAsset, err := u.isShasumAsset(ctx, prevAsset, oldHash)
+		if err != nil {
 			log.WithError(err).Warn("inspecting potential hash asset")
 			continue
-		} else if !h {
+		} else if len(oldAsset) == 0 {
+			log.Debug("old shasum asset not found")
 			continue
 		}
 		log.Debug("identified shasum asset in previous release")
 
 		// The previous release contained a shasum file that contained the previous hash
 		// Does the new release have the same file?
-		newHash, err := u.updatedHashFromShasumAsset(ctx, prevAsset, update)
+		newHash, err := u.updatedHashFromShasumAsset(ctx, prevAsset, oldAsset, oldHash, update)
 		if err != nil {
 			log.WithError(err).Warn("fetching updated hash asset")
 			continue
@@ -155,30 +157,34 @@ func (u *Updater) updatedHash(ctx context.Context, update updater.Update, oldHas
 }
 
 // isShasumAsset returns true if the release asset is a SHASUMS file containing the previous hash
-func (u *Updater) isShasumAsset(ctx context.Context, asset *github.ReleaseAsset, oldHash string) (bool, error) {
+func (u *Updater) isShasumAsset(ctx context.Context, asset *github.ReleaseAsset, oldHash string) ([]string, error) {
 	if asset.GetSize() > 1024 {
-		return false, nil
+		return nil, nil
 	}
 
 	req, err := http.NewRequest("GET", asset.GetBrowserDownloadURL(), nil)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	req = req.WithContext(ctx)
 
 	res, err := u.http.Do(req)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	defer res.Body.Close()
 	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return strings.Contains(string(b), oldHash), nil
+	s := string(b)
+	if !strings.Contains(s, oldHash) {
+		return nil, nil
+	}
+	return strings.Split(s, "\n"), nil
 }
 
-func (u *Updater) updatedHashFromShasumAsset(ctx context.Context, asset *github.ReleaseAsset, update updater.Update) (string, error) {
+func (u *Updater) updatedHashFromShasumAsset(ctx context.Context, asset *github.ReleaseAsset, oldContents []string, oldHash string, update updater.Update) (string, error) {
 	res, err := u.getUpdatedAsset(ctx, asset, update)
 	if err != nil {
 		return "", err
@@ -188,7 +194,37 @@ func (u *Updater) updatedHashFromShasumAsset(ctx context.Context, asset *github.
 	if err != nil {
 		return "", err
 	}
-	return strings.SplitN(string(b), " ", 2)[0], nil
+	s := string(b)
+
+	// If there's one line, extract the checksum and return it:
+	if len(oldContents) == 1 {
+		return strings.SplitN(s, " ", 2)[0], nil
+	}
+
+	// If there's multiple lines, find the file corresponding the old hash:
+	var hashedFile string
+	for _, oldLine := range oldContents {
+		split := strings.SplitN(oldLine, " ", 2)
+		if split[0] == oldHash {
+			hashedFile = split[1]
+		}
+	}
+	if hashedFile == "" {
+		return "", nil
+	}
+
+	logrus.WithField("fn", hashedFile).Debug("identified hashed file in shasum asset")
+	for _, newLine := range strings.Split(s, "\n") {
+		split := strings.SplitN(newLine, " ", 2)
+		if len(split) == 1 {
+			continue
+		}
+		if split[1] == hashedFile {
+			return split[0], nil
+		}
+	}
+
+	return "", nil
 }
 
 func (u *Updater) getUpdatedAsset(ctx context.Context, asset *github.ReleaseAsset, update updater.Update) (*http.Response, error) {
