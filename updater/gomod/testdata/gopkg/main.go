@@ -3,13 +3,16 @@ package main
 import (
 	"os"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v1"
 )
 
 func main() {
-	_ = yaml.NewEncoder(os.Stdout).
-		Encode(map[string]interface{}{
-			"foo": "bar",
-			"foz": "baz",
-		})
+	b, err := yaml.Marshal(map[string]interface{}{
+		"foo": "bar",
+		"foz": "baz",
+	})
+	if err != nil {
+		panic(err)
+	}
+	_, _ = os.Stdout.Write(b)
 }

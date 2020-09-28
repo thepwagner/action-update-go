@@ -32,6 +32,17 @@ func TestUpdater_Check_NotMajorVersions(t *testing.T) {
 	assert.Equal(t, "v29", semver.Major(u.Next))
 }
 
+func TestUpdater_Check_GopkgIn(t *testing.T) {
+	u := updatertest.CheckInFixture(t, "gopkg", updaterFactory(gomod.WithMajorVersions(true)), updater.Dependency{
+		Path:    "gopkg.in/yaml.v1",
+		Version: "v1.0.0",
+	})
+	require.NotNil(t, u)
+	t.Log(u.Next)
+	assert.True(t, semver.Compare("v1", u.Next) < 0)
+	assert.NotEqual(t, "v1", semver.Major(u.Next))
+}
+
 func TestUpdater_Check_MajorVersionsNotAvailable(t *testing.T) {
 	t.Skip("expects v32 to be the latest, check https://github.com/google/go-github/tags before running")
 	latestGoGitHubMajor := updater.Dependency{

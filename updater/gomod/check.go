@@ -42,24 +42,17 @@ func (u *Updater) Check(ctx context.Context, dep updater.Dependency) (*updater.U
 	return latest, nil
 }
 
-var pathMajorVersionRE = regexp.MustCompile(`/v(\d+)$`)
-
-func pathMajorVersion(path string, version int64) string {
-	return fmt.Sprintf("%s/v%d", path[:strings.LastIndex(path, "/")], version)
-}
-
 func (u *Updater) checkForMajorUpdate(ctx context.Context, dep updater.Dependency) (*updater.Update, error) {
 	// Does this look like a versioned path?
-	m := pathMajorVersionRE.FindStringSubmatch(dep.Path)
-	if len(m) == 0 {
+	nextMajorPath := pathNextMajorVersion(dep.Path)
+	if nextMajorPath == "" {
 		return nil, nil
 	}
-	currentMajorVersion, _ := strconv.ParseInt(m[1], 10, 32)
 
 	log := logrus.WithField("path", dep.Path)
 	log.Debug("querying latest major version")
 
-	latest, err := u.queryModuleVersions(ctx, pathMajorVersion(dep.Path, currentMajorVersion+1))
+	latest, err := u.queryModuleVersions(ctx, nextMajorPath)
 	if err != nil {
 		if strings.Contains(err.Error(), "exit status 1") {
 			// Assume we queried for a major version that doesn't exist
@@ -83,6 +76,27 @@ func (u *Updater) checkForMajorUpdate(ctx context.Context, dep updater.Dependenc
 		Previous: dep.Version,
 		Next:     latest.Version,
 	}, nil
+}
+
+var pathMajorVersionRE = regexp.MustCompile(`([\\./])v(\d+)$`)
+
+func pathNextMajorVersion(path string) string {
+	m := pathMajorVersionRE.FindStringSubmatch(path)
+	if len(m) == 0 {
+		return ""
+	}
+	currentMajorVersion, _ := strconv.ParseInt(m[2], 10, 32)
+	sep := m[1]
+	return fmt.Sprintf("%s%sv%d", path[:strings.LastIndex(path, sep)], sep, currentMajorVersion+1)
+}
+
+func pathMajorVersion(basePath, major string) string {
+	m := pathMajorVersionRE.FindStringSubmatch(basePath)
+	if len(m) == 0 {
+		return ""
+	}
+	sep := m[1]
+	return fmt.Sprintf("%s%s%s", basePath[:strings.LastIndex(basePath, sep)], sep, major)
 }
 
 func (u *Updater) checkForUpdate(ctx context.Context, dep updater.Dependency) (*updater.Update, error) {
