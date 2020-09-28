@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -91,7 +90,7 @@ func patchParsedGoMod(goMod *modfile.File, update updater.Update) error {
 		if err := goMod.DropRequire(update.Path); err != nil {
 			return fmt.Errorf("dropping major requirement: %w", err)
 		}
-		pkgNext := path.Join(path.Dir(update.Path), semver.Major(update.Next))
+		pkgNext := pathMajorVersion(update.Path, semver.Major(update.Next))
 		if err := goMod.AddRequire(pkgNext, update.Next); err != nil {
 			return fmt.Errorf("adding major requirement: %w", err)
 		}
@@ -124,12 +123,12 @@ func patchParsedGoMod(goMod *modfile.File, update updater.Update) error {
 
 func (u *Updater) updateSourceCode(up updater.Update) error {
 	// replace foo.bar/v1 with foo.bar/v2 in imports:
-	pattern, err := regexp.Compile(strings.ReplaceAll(up.Path, ".", "\\."))
+	pattern, err := regexp.Compile(regexp.QuoteMeta(up.Path))
 	if err != nil {
 		return err
 	}
 
-	pkgNext := path.Join(path.Dir(up.Path), semver.Major(up.Next))
+	pkgNext := pathMajorVersion(up.Path, semver.Major(up.Next))
 	return filepath.Walk(u.root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			logrus.WithError(err).WithField("path", path).Warn("error accessing path")

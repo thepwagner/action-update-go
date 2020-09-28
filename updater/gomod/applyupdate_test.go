@@ -85,6 +85,29 @@ func TestUpdater_ApplyUpdate_Major(t *testing.T) {
 	assert.Contains(t, mainGo, "github.com/caarlos0/env/v6")
 }
 
+func TestUpdater_ApplyUpdate_Major_Gopkg(t *testing.T) {
+	yaml1 := updater.Update{
+		Path:     "gopkg.in/yaml.v1",
+		Previous: "v1.0.0",
+		Next:     "v2.3.0",
+	}
+	tempDir := updatertest.ApplyUpdateToFixture(t, "gopkg", updaterFactory(gomod.WithMajorVersions(true)), yaml1)
+	uf := readModFiles(t, tempDir)
+
+	// Path is renamed in module files:
+	for _, s := range uf.GoModFiles() {
+		assert.NotContains(t, s, "gopkg.in/yaml.v1 v1.0.0")
+		assert.Contains(t, s, "gopkg.in/yaml.v2 v2.3.0")
+	}
+
+	// Path is updated in source code:
+	b, err := ioutil.ReadFile(filepath.Join(tempDir, "main.go"))
+	require.NoError(t, err)
+	mainGo := string(b)
+	assert.NotContains(t, mainGo, "gopkg.in/yaml.v1")
+	assert.Contains(t, mainGo, "gopkg.in/yaml.v2")
+}
+
 func TestUpdater_ApplyUpdate_NotInRoot(t *testing.T) {
 	tempDir := updatertest.ApplyUpdateToFixture(t, "notinroot", updaterFactory(), pkgErrors081)
 
