@@ -16,12 +16,15 @@ Suggested triggers: `schedule`, `workflow_dispatch`.
 ```yaml
 steps:
 - uses: actions/checkout@v2
+  # If you use Actions "push" for CI too, a Personal Access Token is required for update PRs to trigger
+  with:
+    token: ${{ secrets.MY_GITHUB_PAT }}
 - uses: actions/setup-go@v2
   with:
     go-version: '1.15.0'  # or whatever version you use
 - uses: thepwagner/action-update-go@main
+  # If you use Actions "pull_request" for CI too, a Personal Access Token is required for update PRs to trigger
   with:
-    # If you use Actions for CI too, a Personal Access Token is required for update PRs to trigger
     token: ${{ secrets.MY_GITHUB_PAT }}
 ```
 
