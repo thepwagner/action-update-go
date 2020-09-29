@@ -5,7 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -132,6 +135,16 @@ func (u *Updater) checkForUpdate(ctx context.Context, dep updater.Dependency) (*
 }
 
 func (u *Updater) queryModuleVersions(ctx context.Context, path string) (*modinfo.ModulePublic, error) {
+	if closer, err := u.ensureGomodInRoot(); err != nil {
+		return nil, err
+	} else if closer != nil {
+		defer func() {
+			if err := closer(); err != nil {
+				logrus.WithError(err).Warn("cleaning up temp go file")
+			}
+		}()
+	}
+
 	// Shell out to `go list` for the query, as this supports the same authentication the user's using for `go get`
 	var buf bytes.Buffer
 	var errBuf bytes.Buffer
@@ -154,4 +167,25 @@ func (u *Updater) queryModuleVersions(ctx context.Context, path string) (*modinf
 		return nil, fmt.Errorf("invalid version response")
 	}
 	return &nfo, nil
+}
+
+var dummyModFile = []byte(`module dummy`)
+
+func (u *Updater) ensureGomodInRoot() (func() error, error) {
+	// Check for go.mod file
+	gomodPath := filepath.Join(u.root, GoModFn)
+	_, err := os.Stat(gomodPath)
+	if err == nil {
+		return nil, nil
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("stat go.mod: %w", err)
+	}
+
+	// Not found, write a dummy file
+	if err := ioutil.WriteFile(gomodPath, dummyModFile, 0600); err != nil {
+		return nil, fmt.Errorf("writing dummy go file")
+	}
+	return func() error {
+		return os.Remove(gomodPath)
+	}, nil
 }
