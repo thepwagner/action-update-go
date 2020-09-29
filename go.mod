@@ -3,7 +3,7 @@ module github.com/thepwagner/action-update-go
 go 1.15
 
 require (
-	github.com/caarlos0/env/v5 v5.1.4
+	github.com/caarlos0/env/v6 v6.3.0
 	github.com/dependabot/gomodules-extracted v1.1.0
 	github.com/go-git/go-git/v5 v5.1.0
 	github.com/google/go-cmp v0.5.2 // indirect
