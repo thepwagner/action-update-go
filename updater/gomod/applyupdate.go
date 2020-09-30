@@ -32,14 +32,14 @@ func (u *Updater) ApplyUpdate(ctx context.Context, update updater.Update) error 
 	}
 	for _, f := range modFiles {
 		logrus.WithField("path", f).Debug("updating go.mod file")
-		if err := u.updateGoModFile(ctx, f, update); err != nil {
+		if err := u.updateGoModule(ctx, f, update); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (u *Updater) updateGoModFile(ctx context.Context, path string, update updater.Update) error {
+func (u *Updater) updateGoModule(ctx context.Context, path string, update updater.Update) error {
 	if err := u.updateGoMod(path, update); err != nil {
 		return fmt.Errorf("updating go.mod: %w", err)
 	}
