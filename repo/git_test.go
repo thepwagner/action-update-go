@@ -112,7 +112,7 @@ func TestGitRepo_Push(t *testing.T) {
 	commit, err := log.Next()
 	require.NoError(t, err)
 	t.Logf("inspecting commit %s", commit.Hash)
-	assert.Equal(t, "update github.com/test to v1.0.0", commit.Message)
+	assert.Equal(t, "github.com/test@v1.0.0", commit.Message)
 	assert.Equal(t, repo.DefaultGitIdentity.Name, commit.Author.Name)
 	assert.Equal(t, repo.DefaultGitIdentity.Email, commit.Author.Email)
 

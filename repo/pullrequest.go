@@ -23,10 +23,23 @@ func NewGitHubPullRequestContent(gh *github.Client) *GitHubPullRequestContent {
 	return &GitHubPullRequestContent{github: gh}
 }
 
-func (d *GitHubPullRequestContent) Generate(ctx context.Context, update updater.Update) (title, body string, err error) {
-	title = fmt.Sprintf("Update %s from %s to %s", update.Path, update.Previous, update.Next)
-	body, err = d.prBody(ctx, update)
+func (d *GitHubPullRequestContent) Generate(ctx context.Context, updates ...updater.Update) (title, body string, err error) {
+	title = prTitle(updates)
+
+	if len(updates) == 1 {
+		body, err = d.prBody(ctx, updates[0])
+	} else {
+		body, err = d.prMultiBody(ctx, updates)
+	}
 	return
+}
+
+func prTitle(updates []updater.Update) string {
+	if len(updates) == 1 {
+		update := updates[0]
+		return fmt.Sprintf("Update %s from %s to %s", update.Path, update.Previous, update.Next)
+	}
+	return "Dependency Updates"
 }
 
 func (d *GitHubPullRequestContent) prBody(ctx context.Context, update updater.Update) (string, error) {
@@ -37,6 +50,25 @@ func (d *GitHubPullRequestContent) prBody(ctx context.Context, update updater.Up
 		return "", err
 	}
 	writePatchBlob(&body, update)
+	return body.String(), nil
+}
+
+func (d *GitHubPullRequestContent) prMultiBody(ctx context.Context, updates []updater.Update) (string, error) {
+	var body strings.Builder
+	body.WriteString("Here are some updates, I hope they work.\n\n")
+
+	for _, update := range updates {
+		_, _ = fmt.Fprintf(&body, "#### %s@%s\n", update.Path, update.Next)
+		before := body.Len()
+		if err := d.writeGitHubChangelog(ctx, &body, update); err != nil {
+			return "", err
+		}
+		if body.Len() != before {
+			body.WriteString("\n")
+		}
+	}
+
+	writePatchBlob(&body, updates...)
 	return body.String(), nil
 }
 
@@ -61,9 +93,14 @@ func (d *GitHubPullRequestContent) writeGitHubChangelog(ctx context.Context, out
 	return nil
 }
 
-func writePatchBlob(out io.Writer, update updater.Update) {
-	major := semver.Major(update.Previous) != semver.Major(update.Next)
-	minor := !major && semver.MajorMinor(update.Previous) != semver.MajorMinor(update.Next)
+func writePatchBlob(out io.Writer, updates ...updater.Update) {
+	var major, minor bool
+
+	for _, update := range updates {
+		major = major || semver.Major(update.Previous) != semver.Major(update.Next)
+		minor = minor || !major && semver.MajorMinor(update.Previous) != semver.MajorMinor(update.Next)
+	}
+
 	details := struct {
 		Major bool `json:"major"`
 		Minor bool `json:"minor"`
