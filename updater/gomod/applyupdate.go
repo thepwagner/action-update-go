@@ -19,17 +19,33 @@ import (
 	"github.com/thepwagner/action-update-go/updater"
 )
 
-func (u *Updater) ApplyUpdate(ctx context.Context, up updater.Update) error {
-	if err := u.updateGoMod(up); err != nil {
-		return err
-	}
-	if MajorPkg(up) {
-		if err := u.updateSourceCode(up); err != nil {
+func (u *Updater) ApplyUpdate(ctx context.Context, update updater.Update) error {
+	if MajorPkg(update) {
+		if err := u.updateSourceCode(update); err != nil {
 			return err
 		}
 	}
 
-	if closer, err := u.ensureGoFileInRoot(); err != nil {
+	modFiles, err := u.collectGoModFiles()
+	if err != nil {
+		return fmt.Errorf("collecting go.mod files: %w", err)
+	}
+	for _, f := range modFiles {
+		logrus.WithField("path", f).Debug("updating go.mod file")
+		if err := u.updateGoModFile(ctx, f, update); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (u *Updater) updateGoModFile(ctx context.Context, path string, update updater.Update) error {
+	if err := u.updateGoMod(path, update); err != nil {
+		return fmt.Errorf("updating go.mod: %w", err)
+	}
+
+	modRoot, _ := filepath.Split(path)
+	if closer, err := ensureGoFileInPath(modRoot); err != nil {
 		return err
 	} else if closer != nil {
 		defer func() {
@@ -39,21 +55,20 @@ func (u *Updater) ApplyUpdate(ctx context.Context, up updater.Update) error {
 		}()
 	}
 
-	if err := u.updateGoSum(ctx); err != nil {
+	if err := u.updateGoSum(ctx, modRoot); err != nil {
 		return err
 	}
 
-	if u.hasVendor() {
-		if err := u.updateVendor(ctx); err != nil {
+	if u.hasVendor(modRoot) {
+		if err := u.updateVendor(ctx, modRoot); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (u *Updater) updateGoMod(update updater.Update) error {
-	goModPath := filepath.Join(u.root, GoModFn)
-	b, err := ioutil.ReadFile(goModPath)
+func (u *Updater) updateGoMod(path string, update updater.Update) error {
+	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("reading go.mod: %w", err)
 	}
@@ -78,7 +93,7 @@ func (u *Updater) updateGoMod(update updater.Update) error {
 		_, _ = fmt.Fprintln(out, "-- /go.mod --")
 	}
 
-	if err := ioutil.WriteFile(goModPath, updated, 0644); err != nil {
+	if err := ioutil.WriteFile(path, updated, 0644); err != nil {
 		return fmt.Errorf("writing updated go.mod: %w", err)
 	}
 	return nil
@@ -118,7 +133,7 @@ func patchParsedGoMod(goMod *modfile.File, update updater.Update) error {
 		}
 	}
 
-	return fmt.Errorf("could not update %q", update.Path)
+	return nil
 }
 
 func (u *Updater) updateSourceCode(up updater.Update) error {
@@ -201,8 +216,8 @@ var fakeMainFile = []byte(`package main
 func main() {}
 `)
 
-func (u *Updater) ensureGoFileInRoot() (func() error, error) {
-	fileInfos, err := ioutil.ReadDir(u.root)
+func ensureGoFileInPath(path string) (func() error, error) {
+	fileInfos, err := ioutil.ReadDir(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading root dir: %w", err)
 	}
@@ -213,7 +228,7 @@ func (u *Updater) ensureGoFileInRoot() (func() error, error) {
 	}
 
 	// There is no .go file in the root, but having one makes `go get` easier.
-	fakeMain := filepath.Join(u.root, "main.go")
+	fakeMain := filepath.Join(path, "main.go")
 	if err := ioutil.WriteFile(fakeMain, fakeMainFile, 0600); err != nil {
 		return nil, fmt.Errorf("writing fake go file: %w", err)
 	}
@@ -222,23 +237,23 @@ func (u *Updater) ensureGoFileInRoot() (func() error, error) {
 	}, nil
 }
 
-func (u *Updater) updateGoSum(ctx context.Context) error {
+func (u *Updater) updateGoSum(ctx context.Context, path string) error {
 	// Shell out to the Go SDK for this, so the user has more control over generation:
-	if err := u.rootGoCmd(ctx, "get", "-d", "-v"); err != nil {
+	if err := pathGoCmd(ctx, path, "get", "-d", "-v"); err != nil {
 		return fmt.Errorf("updating go.sum: %w", err)
 	}
 
 	if u.Tidy {
-		if err := u.rootGoCmd(ctx, "mod", "tidy"); err != nil {
+		if err := pathGoCmd(ctx, path, "mod", "tidy"); err != nil {
 			return fmt.Errorf("tidying go.sum: %w", err)
 		}
 	}
 	return nil
 }
 
-func (u *Updater) rootGoCmd(ctx context.Context, args ...string) error {
+func pathGoCmd(ctx context.Context, path string, args ...string) error {
 	cmd := exec.CommandContext(ctx, "go", args...)
-	cmd.Dir = u.root
+	cmd.Dir = path
 
 	// Capture output to buffer:
 	var buf bytes.Buffer
@@ -263,13 +278,13 @@ func (u *Updater) rootGoCmd(ctx context.Context, args ...string) error {
 	return err
 }
 
-func (u *Updater) hasVendor() bool {
-	_, err := os.Stat(filepath.Join(u.root, VendorModulesFn))
+func (u *Updater) hasVendor(path string) bool {
+	_, err := os.Stat(filepath.Join(path, VendorModulesFn))
 	return err == nil
 }
 
-func (u *Updater) updateVendor(ctx context.Context) error {
-	if err := u.rootGoCmd(ctx, "mod", "vendor"); err != nil {
+func (u *Updater) updateVendor(ctx context.Context, path string) error {
+	if err := pathGoCmd(ctx, path, "mod", "vendor"); err != nil {
 		return fmt.Errorf("go vendoring: %w", err)
 	}
 	return nil

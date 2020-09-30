@@ -14,13 +14,13 @@ import (
 )
 
 func (u *Updater) Dependencies(_ context.Context) ([]updater.Dependency, error) {
-	gomodFiles, err := u.collectGomodFiles()
+	goModFiles, err := u.collectGoModFiles()
 	if err != nil {
 		return nil, err
 	}
-	logrus.WithField("gomods", len(gomodFiles)).Debug("discovered go.mod files")
+	logrus.WithField("gomods", len(goModFiles)).Debug("discovered go.mod files")
 
-	deps, err := u.collectUniqueDependencies(gomodFiles)
+	deps, err := u.collectUniqueDependencies(goModFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -28,8 +28,8 @@ func (u *Updater) Dependencies(_ context.Context) ([]updater.Dependency, error) 
 	return sortUniqueDependencies(deps)
 }
 
-func (u *Updater) collectGomodFiles() ([]string, error) {
-	gomods, err := filepath.Glob(filepath.Join(u.root, "*", GoModFn))
+func (u *Updater) collectGoModFiles() ([]string, error) {
+	gomods, err := filepath.Glob(filepath.Join(u.root, "**", GoModFn))
 	if err != nil {
 		return nil, fmt.Errorf("collecting go.mod: %w", err)
 	}

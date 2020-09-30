@@ -14,8 +14,6 @@ import (
 	"github.com/thepwagner/action-update-go/updatertest"
 )
 
-var goModFiles = []string{gomod.GoModFn, gomod.GoSumFn}
-
 var pkgErrors081 = updater.Update{
 	Path: "github.com/pkg/errors",
 	Next: "v0.8.1",
@@ -110,13 +108,10 @@ func TestUpdater_ApplyUpdate_Major_Gopkg(t *testing.T) {
 
 func TestUpdater_ApplyUpdate_NotInRoot(t *testing.T) {
 	tempDir := updatertest.ApplyUpdateToFixture(t, "notinroot", updaterFactory(), pkgErrors081)
+	uf := readModFiles(t, tempDir)
 
 	// Path is renamed in module files:
-	for _, fn := range goModFiles {
-		b, err := ioutil.ReadFile(filepath.Join(tempDir, fn))
-		require.NoError(t, err)
-		s := string(b)
-
+	for _, s := range uf.GoModFiles() {
 		assert.NotContains(t, s, "github.com/pkg/errors v0.8.0")
 		assert.Contains(t, s, "github.com/pkg/errors v0.8.1")
 	}
@@ -157,6 +152,38 @@ func TestUpdater_ApplyUpdate_Replace(t *testing.T) {
 	assert.NotContains(t, uf.GoSum, "github.com/pkg/errors")
 	assert.NotContains(t, uf.GoSum, "github.com/thepwagner/errors v0.8.0")
 	assert.Contains(t, uf.GoSum, "github.com/thepwagner/errors v0.8.1")
+}
+
+func TestUpdater_ApplyUpdate_MultimoduleCommon(t *testing.T) {
+	logrus160 := updater.Update{
+		Path: "github.com/sirupsen/logrus",
+		Next: "v1.6.0",
+	}
+
+	tempDir := updatertest.ApplyUpdateToFixture(t, "multimodule/common", updaterFactory(), logrus160)
+	uf := readModFiles(t, filepath.Join(tempDir, "common"))
+	for _, s := range uf.GoModFiles() {
+		assert.NotContains(t, s, "github.com/sirupsen/logrus v1.5.0")
+		assert.Contains(t, s, "github.com/sirupsen/logrus v1.6.0")
+	}
+}
+
+func TestUpdater_ApplyUpdate_MultimoduleCmd(t *testing.T) {
+	tempDir := updatertest.ApplyUpdateToFixture(t, "multimodule/cmd", updaterFactory(), pkgErrors081)
+	uf := readModFiles(t, filepath.Join(tempDir, "cmd"))
+	for _, s := range uf.GoModFiles() {
+		assert.NotContains(t, s, "github.com/pkg/errors v0.8.0")
+		assert.Contains(t, s, "github.com/pkg/errors v0.8.1")
+	}
+}
+
+func TestUpdater_ApplyUpdate_Multimodule(t *testing.T) {
+	tempDir := updatertest.ApplyUpdateToFixture(t, "multimodule", updaterFactory(), pkgErrors081)
+	uf := readModFiles(t, filepath.Join(tempDir, "cmd"))
+	for _, s := range uf.GoModFiles() {
+		assert.NotContains(t, s, "github.com/pkg/errors v0.8.0")
+		assert.Contains(t, s, "github.com/pkg/errors v0.8.1")
+	}
 }
 
 type modFiles struct {
