@@ -1,6 +1,8 @@
 package gomod_test
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
@@ -55,4 +57,17 @@ func TestUpdater_Check_MajorVersionsNotAvailable(t *testing.T) {
 	t.Log(u.Next)
 	assert.True(t, semver.Compare("v32", u.Next) < 0)
 	assert.Equal(t, "v32", semver.Major(u.Next))
+}
+
+func TestUpdater_Check_Multimodule(t *testing.T) {
+	for _, path := range []string{"multimodule", filepath.Join("multimodule", "common")} {
+		t.Run(strings.ReplaceAll(path, string(filepath.Separator), "-"), func(t *testing.T) {
+			u := updatertest.CheckInFixture(t, path, updaterFactory(gomod.WithMajorVersions(false)), updater.Dependency{
+				Path:    "github.com/pkg/errors",
+				Version: "v0.8.0",
+			})
+			require.NotNil(t, u)
+			t.Log(u.Next)
+		})
+	}
 }

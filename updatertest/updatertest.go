@@ -3,6 +3,7 @@ package updatertest
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	deepcopy "github.com/otiai10/copy"
@@ -43,8 +44,18 @@ func CheckInFixture(t *testing.T, fixture string, factory Factory, dep updater.D
 }
 
 func ApplyUpdateToFixture(t *testing.T, fixture string, factory Factory, up updater.Update) string {
-	tempDir := TempDirFromFixture(t, fixture)
-	u := factory(tempDir)
+	dir, f := filepath.Split(fixture)
+
+	var tempDir string
+	var u updater.Updater
+	if dir != "" {
+		tempDir = TempDirFromFixture(t, dir)
+		u = factory(filepath.Join(tempDir, f))
+	} else {
+		tempDir = TempDirFromFixture(t, f)
+		u = factory(tempDir)
+	}
+
 	err := u.ApplyUpdate(context.Background(), up)
 	require.NoError(t, err)
 	return tempDir
