@@ -13,7 +13,7 @@ import (
 func TestNewGitHubRepo(t *testing.T) {
 	gr := initGitRepo(t, plumbing.NewBranchReferenceName(branchName))
 
-	gh, err := repo.NewGitHubRepo(gr, "foo/bar", "")
+	gh, err := repo.NewGitHubRepo(gr, testKey, "foo/bar", "")
 	require.NoError(t, err)
 	assert.NotNil(t, gh)
 }

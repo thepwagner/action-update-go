@@ -27,7 +27,7 @@ type PullRequestContent interface {
 	Generate(context.Context, ...updater.Update) (title, body string, err error)
 }
 
-func NewGitHubRepo(repo *GitRepo, repoNameOwner, token string) (*GitHubRepo, error) {
+func NewGitHubRepo(repo *GitRepo, hmacKey []byte, repoNameOwner, token string) (*GitHubRepo, error) {
 	ghRepoSplit := strings.Split(repoNameOwner, "/")
 	if len(ghRepoSplit) != 2 {
 		return nil, fmt.Errorf("expected repo in OWNER/NAME format")
@@ -39,7 +39,7 @@ func NewGitHubRepo(repo *GitRepo, repoNameOwner, token string) (*GitHubRepo, err
 		owner:     ghRepoSplit[0],
 		repoName:  ghRepoSplit[1],
 		github:    ghClient,
-		prContent: NewGitHubPullRequestContent(ghClient),
+		prContent: NewGitHubPullRequestContent(ghClient, hmacKey),
 	}, nil
 }
 

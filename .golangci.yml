@@ -51,7 +51,7 @@ linters:
     - unused
     - varcheck
     - whitespace
-
 issues:
   exclude:
+    - G101
     - G306

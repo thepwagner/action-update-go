@@ -12,52 +12,72 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 	"github.com/google/go-github/v32/github"
 	"github.com/thepwagner/action-update-go/updater"
 )
 
 type GitHubPullRequestContent struct {
 	github *github.Client
+	key    []byte
 }
 
 var _ PullRequestContent = (*GitHubPullRequestContent)(nil)
 
-func NewGitHubPullRequestContent(gh *github.Client) *GitHubPullRequestContent {
-	return &GitHubPullRequestContent{github: gh}
+func NewGitHubPullRequestContent(gh *github.Client, key []byte) *GitHubPullRequestContent {
+	return &GitHubPullRequestContent{
+		github: gh,
+		key:    key,
+	}
 }
 
 func (d *GitHubPullRequestContent) Generate(ctx context.Context, updates ...updater.Update) (title, body string, err error) {
-	title = prTitle(updates)
-
 	if len(updates) == 1 {
-		body, err = d.prBody(ctx, updates[0])
+		update := updates[0]
+		title = fmt.Sprintf("Update %s from %s to %s", update.Path, update.Previous, update.Next)
+		body, err = d.bodySingle(ctx, update)
 	} else {
-		body, err = d.prMultiBody(ctx, updates)
+		title = "Dependency Updates"
+		body, err = d.bodyMulti(ctx, updates)
 	}
 	return
 }
 
-func prTitle(updates []updater.Update) string {
-	if len(updates) == 1 {
-		update := updates[0]
-		return fmt.Sprintf("Update %s from %s to %s", update.Path, update.Previous, update.Next)
+const (
+	openToken  = "<!--::action-update-go::"
+	closeToken = "-->"
+)
+
+func (d *GitHubPullRequestContent) ParseBody(s string) []updater.Update {
+	lastOpen := strings.LastIndex(s, openToken)
+	if lastOpen == -1 {
+		return nil
 	}
-	return "Dependency Updates"
+	closeAfterOpen := strings.Index(s[lastOpen:], closeToken)
+	raw := s[lastOpen+len(openToken) : lastOpen+closeAfterOpen]
+
+	var signed SignedUpdateDescriptor
+	if err := json.Unmarshal([]byte(raw), &signed); err != nil {
+		return nil
+	}
+
+	updates, _ := VerifySignedUpdateDescriptor(d.key, signed)
+	return updates
 }
 
-func (d *GitHubPullRequestContent) prBody(ctx context.Context, update updater.Update) (string, error) {
+func (d *GitHubPullRequestContent) bodySingle(ctx context.Context, update updater.Update) (string, error) {
 	var body strings.Builder
 	_, _ = fmt.Fprintf(&body, "Here is %s %s, I hope it works.\n", update.Path, update.Next)
 
 	if err := d.writeGitHubChangelog(ctx, &body, update); err != nil {
 		return "", err
 	}
-	writePatchBlob(&body, update)
+	if err := d.writeUpdateSignature(&body, update); err != nil {
+		return "", fmt.Errorf("writing update signature: %w", err)
+	}
 	return body.String(), nil
 }
 
-func (d *GitHubPullRequestContent) prMultiBody(ctx context.Context, updates []updater.Update) (string, error) {
+func (d *GitHubPullRequestContent) bodyMulti(ctx context.Context, updates []updater.Update) (string, error) {
 	var body strings.Builder
 	body.WriteString("Here are some updates, I hope they work.\n\n")
 
@@ -72,7 +92,9 @@ func (d *GitHubPullRequestContent) prMultiBody(ctx context.Context, updates []up
 		}
 	}
 
-	writePatchBlob(&body, updates...)
+	if err := d.writeUpdateSignature(&body, updates...); err != nil {
+		return "", fmt.Errorf("writing update signature: %w", err)
+	}
 	return body.String(), nil
 }
 
@@ -97,28 +119,18 @@ func (d *GitHubPullRequestContent) writeGitHubChangelog(ctx context.Context, out
 	return nil
 }
 
-func writePatchBlob(out io.Writer, updates ...updater.Update) {
-	var major, minor bool
-
-	for _, update := range updates {
-		major = major || semver.Major(update.Previous) != semver.Major(update.Next)
-		minor = minor || !major && semver.MajorMinor(update.Previous) != semver.MajorMinor(update.Next)
+func (d *GitHubPullRequestContent) writeUpdateSignature(out io.Writer, updates ...updater.Update) error {
+	dsc, err := NewSignedUpdateDescriptor(d.key, updates...)
+	if err != nil {
+		return fmt.Errorf("signing updates: %w", err)
 	}
 
-	details := struct {
-		Major bool `json:"major"`
-		Minor bool `json:"minor"`
-		Patch bool `json:"patch"`
-	}{
-		Major: major,
-		Minor: minor,
-		Patch: !major && !minor,
+	_, _ = fmt.Fprint(out, "\n", openToken, "\n")
+	if err := json.NewEncoder(out).Encode(&dsc); err != nil {
+		return fmt.Errorf("encoding signature: %w", err)
 	}
-	encoder := json.NewEncoder(out)
-	encoder.SetIndent("", "  ")
-	_, _ = fmt.Fprintln(out, "\n```json")
-	_ = encoder.Encode(&details)
-	_, _ = fmt.Fprint(out, "```\n")
+	_, _ = fmt.Fprint(out, closeToken)
+	return nil
 }
 
 type SignedUpdateDescriptor struct {
