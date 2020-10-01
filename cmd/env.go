@@ -16,11 +16,12 @@ type Environment struct {
 	GitHubEventPath  string `env:"GITHUB_EVENT_PATH"`
 	GitHubRepository string `env:"GITHUB_REPOSITORY"`
 
-	InputBatches  string `env:"INPUT_BATCHES"`
-	InputBranches string `env:"INPUT_BRANCHES"`
-	GitHubToken   string `env:"INPUT_TOKEN"`
-	InputLogLevel string `env:"INPUT_LOG_LEVEL" envDefault:"debug"`
-	InputUpdater  string `env:"INPUT_UPDATER"`
+	InputBatches    string `env:"INPUT_BATCHES"`
+	InputBranches   string `env:"INPUT_BRANCHES"`
+	GitHubToken     string `env:"INPUT_TOKEN"`
+	InputLogLevel   string `env:"INPUT_LOG_LEVEL" envDefault:"debug"`
+	InputUpdater    string `env:"INPUT_UPDATER"`
+	InputSigningKey []byte `env:"INPUT_SIGNING_KEY"`
 }
 
 func ParseEnvironment() (*Environment, error) {

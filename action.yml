@@ -15,6 +15,11 @@ inputs:
       [Learn more about creating and using encrypted secrets](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/creating-and-using-encrypted-secrets)
     default: ${{ github.token }}
     required: true
+  signing_key:
+    default: "i deserve this"
+    description: >
+      Unique key to use for maintaining trusted metadata in PR body.
+    required: false
   log_level:
     description: 'Control debug/info/warn/error output'
     required: false

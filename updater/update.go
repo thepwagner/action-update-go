@@ -7,11 +7,11 @@ import (
 // Update is change in version to a specific module path
 type Update struct {
 	// Path of module being updated
-	Path string
+	Path string `json:"path"`
 	// Previous module version
-	Previous string
+	Previous string `json:"previous"`
 	// Next module version
-	Next string
+	Next string `json:"next"`
 }
 
 type UpdatesByBranch map[string]Updates

@@ -55,7 +55,7 @@ func getRepoUpdater(env *cmd.Environment) (updater.Repo, *updater.RepoUpdater, e
 
 	var modRepo updater.Repo
 	if env.GitHubRepository != "" && env.GitHubToken != "" {
-		modRepo, err = gitrepo.NewGitHubRepo(gitRepo, env.GitHubRepository, env.GitHubToken)
+		modRepo, err = gitrepo.NewGitHubRepo(gitRepo, env.InputSigningKey, env.GitHubRepository, env.GitHubToken)
 		if err != nil {
 			return nil, nil, err
 		}

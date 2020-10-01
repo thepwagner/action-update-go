@@ -28,7 +28,7 @@ type Repo interface {
 	Branch() string
 	// Push snapshots the working tree after an update has been applied, and "publishes".
 	// This is branch to commit. Publishing may mean push, create a PR, tweet the maintainer, whatever.
-	Push(context.Context, Update) error
+	Push(context.Context, ...Update) error
 }
 
 type Updater interface {
@@ -190,15 +190,7 @@ func (u *RepoUpdater) batchedUpdate(ctx context.Context, base, batchName string,
 		}
 	}
 
-	var update Update
-	if len(updates) == 1 {
-		update = updates[0]
-	} else {
-		// TODO: awkward for GitHubRepo, which will try to link a changelog here?
-		update = Update{Path: branch}
-	}
-
-	if err := u.repo.Push(ctx, update); err != nil {
+	if err := u.repo.Push(ctx, updates...); err != nil {
 		return fmt.Errorf("pushing update: %w", err)
 	}
 

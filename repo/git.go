@@ -18,11 +18,12 @@ const RemoteName = "origin"
 
 // GitRepo is a Repo that synchronizes access to a single git working tree.
 type GitRepo struct {
-	repo    *git.Repository
-	wt      *git.Worktree
-	branch  string
-	author  GitIdentity
-	remotes bool
+	repo          *git.Repository
+	wt            *git.Worktree
+	branch        string
+	author        GitIdentity
+	remotes       bool
+	commitMessage commitMessageGen
 }
 
 var _ updater.Repo = (*GitRepo)(nil)
@@ -65,11 +66,12 @@ func NewGitRepo(repo *git.Repository) (*GitRepo, error) {
 		branch = head.Name().Short()
 	}
 	return &GitRepo{
-		repo:    repo,
-		wt:      wt,
-		branch:  branch,
-		remotes: len(remotes) > 0,
-		author:  DefaultGitIdentity,
+		repo:          repo,
+		wt:            wt,
+		branch:        branch,
+		remotes:       len(remotes) > 0,
+		author:        DefaultGitIdentity,
+		commitMessage: defaultCommitMessage,
 	}, nil
 }
 
@@ -165,9 +167,8 @@ func (t *GitRepo) Root() string {
 	return t.wt.Filesystem.Root()
 }
 
-func (t *GitRepo) Push(ctx context.Context, update updater.Update) error {
-	// TODO: dependency inject this?
-	commitMessage := fmt.Sprintf("update %s to %s", update.Path, update.Next)
+func (t *GitRepo) Push(ctx context.Context, update ...updater.Update) error {
+	commitMessage := t.commitMessage(update...)
 	if err := t.commit(commitMessage); err != nil {
 		return err
 	}

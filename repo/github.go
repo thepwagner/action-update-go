@@ -24,10 +24,10 @@ type GitHubRepo struct {
 var _ updater.Repo = (*GitHubRepo)(nil)
 
 type PullRequestContent interface {
-	Generate(context.Context, updater.Update) (title, body string, err error)
+	Generate(context.Context, ...updater.Update) (title, body string, err error)
 }
 
-func NewGitHubRepo(repo *GitRepo, repoNameOwner, token string) (*GitHubRepo, error) {
+func NewGitHubRepo(repo *GitRepo, hmacKey []byte, repoNameOwner, token string) (*GitHubRepo, error) {
 	ghRepoSplit := strings.Split(repoNameOwner, "/")
 	if len(ghRepoSplit) != 2 {
 		return nil, fmt.Errorf("expected repo in OWNER/NAME format")
@@ -39,7 +39,7 @@ func NewGitHubRepo(repo *GitRepo, repoNameOwner, token string) (*GitHubRepo, err
 		owner:     ghRepoSplit[0],
 		repoName:  ghRepoSplit[1],
 		github:    ghClient,
-		prContent: NewGitHubPullRequestContent(ghClient),
+		prContent: NewGitHubPullRequestContent(ghClient, hmacKey),
 	}, nil
 }
 
@@ -56,18 +56,18 @@ func (g *GitHubRepo) SetBranch(branch string) error       { return g.repo.SetBra
 func (g *GitHubRepo) NewBranch(base, branch string) error { return g.repo.NewBranch(base, branch) }
 
 // Push follows the git push with opening a pull request
-func (g *GitHubRepo) Push(ctx context.Context, update updater.Update) error {
-	if err := g.repo.Push(ctx, update); err != nil {
+func (g *GitHubRepo) Push(ctx context.Context, updates ...updater.Update) error {
+	if err := g.repo.Push(ctx, updates...); err != nil {
 		return err
 	}
-	if err := g.createPR(ctx, update); err != nil {
+	if err := g.createPR(ctx, updates); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (g *GitHubRepo) createPR(ctx context.Context, update updater.Update) error {
-	title, body, err := g.prContent.Generate(ctx, update)
+func (g *GitHubRepo) createPR(ctx context.Context, updates []updater.Update) error {
+	title, body, err := g.prContent.Generate(ctx, updates...)
 	if err != nil {
 		return fmt.Errorf("generating PR prContent: %w", err)
 	}
