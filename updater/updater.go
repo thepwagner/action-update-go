@@ -196,7 +196,3 @@ func (u *RepoUpdater) batchedUpdate(ctx context.Context, base, batchName string,
 
 	return nil
 }
-
-func (u *RepoUpdater) Parse(branch string) (baseBranch string, update *Update) {
-	return u.branchNamer.Parse(branch)
-}

@@ -30,22 +30,23 @@ func PullRequest(ctx context.Context, env *cmd.Environment, evt interface{}) err
 var _ cmd.Handler = PullRequest
 
 func prReopened(ctx context.Context, env *cmd.Environment, pr *github.PullRequestEvent) error {
-	_, updater, err := getRepoUpdater(env)
-	if err != nil {
-		return err
-	}
+	//_, updater, err := getRepoUpdater(env)
+	//if err != nil {
+	//	return err
+	//}
 
 	prRef := pr.GetPullRequest().GetHead().GetRef()
 	logrus.WithField("ref", prRef).Info("PR reopened, recreating update")
 
-	base, update := updater.Parse(prRef)
-	if update == nil {
-		logrus.Info("not an update PR")
-		return nil
-	}
-
-	if err := updater.Update(ctx, base, *update); err != nil {
-		return fmt.Errorf("performing update: %w", err)
-	}
+	// FIXME: SignedUpdate parsing goes here
+	//base, update := updater.Parse(prRef)
+	//if update == nil {
+	//	logrus.Info("not an update PR")
+	//	return nil
+	//}
+	//
+	//if err := updater.Update(ctx, base, *update); err != nil {
+	//	return fmt.Errorf("performing update: %w", err)
+	//}
 	return nil
 }
