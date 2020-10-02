@@ -19,17 +19,18 @@ func TestRepoUpdater_Update(t *testing.T) {
 	ru := updater.NewRepoUpdater(r, u)
 	ctx := context.Background()
 
-	setupMockUpdate(ctx, r, u, mockUpdate)
+	branch := setupMockUpdate(ctx, r, u, mockUpdate)
 
-	err := ru.Update(ctx, baseBranch, mockUpdate)
+	err := ru.Update(ctx, baseBranch, branch, mockUpdate)
 	require.NoError(t, err)
 }
 
-func setupMockUpdate(ctx context.Context, r *mockRepo, u *mockUpdater, up updater.Update) {
+func setupMockUpdate(ctx context.Context, r *mockRepo, u *mockUpdater, up updater.Update) string {
 	branch := fmt.Sprintf("action-update-go/main/%s/%s", up.Path, up.Next)
 	r.On("NewBranch", baseBranch, branch).Return(nil)
 	u.On("ApplyUpdate", ctx, up).Return(nil)
 	r.On("Push", ctx, up).Return(nil)
+	return branch
 }
 
 func TestRepoUpdater_UpdateAll_NoChanges(t *testing.T) {

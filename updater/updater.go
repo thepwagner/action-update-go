@@ -59,19 +59,19 @@ func WithBatches(batchConfig map[string][]string) RepoUpdaterOpt {
 }
 
 // Update creates a single update branch in the Repo.
-func (u *RepoUpdater) Update(ctx context.Context, baseBranch string, update Update) error {
-	if err := u.repo.NewBranch(baseBranch, u.branchNamer.Format(baseBranch, update)); err != nil {
+func (u *RepoUpdater) Update(ctx context.Context, baseBranch, branchName string, updates ...Update) error {
+	if err := u.repo.NewBranch(baseBranch, branchName); err != nil {
 		return fmt.Errorf("switching to target branch: %w", err)
 	}
-
-	if err := u.updater.ApplyUpdate(ctx, update); err != nil {
-		return fmt.Errorf("applying update: %w", err)
+	for _, update := range updates {
+		if err := u.updater.ApplyUpdate(ctx, update); err != nil {
+			return fmt.Errorf("applying update: %w", err)
+		}
 	}
 
-	if err := u.repo.Push(ctx, update); err != nil {
+	if err := u.repo.Push(ctx, updates...); err != nil {
 		return fmt.Errorf("pushing update: %w", err)
 	}
-
 	return nil
 }
 
@@ -195,8 +195,4 @@ func (u *RepoUpdater) batchedUpdate(ctx context.Context, base, batchName string,
 	}
 
 	return nil
-}
-
-func (u *RepoUpdater) Parse(branch string) (baseBranch string, update *Update) {
-	return u.branchNamer.Parse(branch)
 }

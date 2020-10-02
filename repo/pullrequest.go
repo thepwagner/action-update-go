@@ -2,14 +2,10 @@ package repo
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha512"
-	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"strings"
 
 	"github.com/google/go-github/v32/github"
@@ -48,6 +44,16 @@ const (
 )
 
 func (d *GitHubPullRequestContent) ParseBody(s string) []updater.Update {
+	signed := ExtractSignedUpdateDescriptor(s)
+	if signed == nil {
+		return nil
+	}
+
+	updates, _ := updater.VerifySignedUpdateDescriptor(d.key, *signed)
+	return updates
+}
+
+func ExtractSignedUpdateDescriptor(s string) *updater.SignedUpdateDescriptor {
 	lastOpen := strings.LastIndex(s, openToken)
 	if lastOpen == -1 {
 		return nil
@@ -55,13 +61,11 @@ func (d *GitHubPullRequestContent) ParseBody(s string) []updater.Update {
 	closeAfterOpen := strings.Index(s[lastOpen:], closeToken)
 	raw := s[lastOpen+len(openToken) : lastOpen+closeAfterOpen]
 
-	var signed SignedUpdateDescriptor
+	var signed updater.SignedUpdateDescriptor
 	if err := json.Unmarshal([]byte(raw), &signed); err != nil {
 		return nil
 	}
-
-	updates, _ := VerifySignedUpdateDescriptor(d.key, signed)
-	return updates
+	return &signed
 }
 
 func (d *GitHubPullRequestContent) bodySingle(ctx context.Context, update updater.Update) (string, error) {
@@ -120,7 +124,7 @@ func (d *GitHubPullRequestContent) writeGitHubChangelog(ctx context.Context, out
 }
 
 func (d *GitHubPullRequestContent) writeUpdateSignature(out io.Writer, updates ...updater.Update) error {
-	dsc, err := NewSignedUpdateDescriptor(d.key, updates...)
+	dsc, err := updater.NewSignedUpdateDescriptor(d.key, updates...)
 	if err != nil {
 		return fmt.Errorf("signing updates: %w", err)
 	}
@@ -131,42 +135,4 @@ func (d *GitHubPullRequestContent) writeUpdateSignature(out io.Writer, updates .
 	}
 	_, _ = fmt.Fprint(out, closeToken)
 	return nil
-}
-
-type SignedUpdateDescriptor struct {
-	Updates   []updater.Update `json:"updates"`
-	Signature []byte           `json:"signature"`
-}
-
-func NewSignedUpdateDescriptor(key []byte, updates ...updater.Update) (SignedUpdateDescriptor, error) {
-	signature, err := updatesHash(key, updates)
-	if err != nil {
-		return SignedUpdateDescriptor{}, err
-	}
-	return SignedUpdateDescriptor{
-		Updates:   updates,
-		Signature: signature,
-	}, nil
-}
-
-func updatesHash(key []byte, updates []updater.Update) ([]byte, error) {
-	sort.Slice(updates, func(i, j int) bool {
-		return updates[i].Path < updates[j].Path
-	})
-	hash := hmac.New(sha512.New, key)
-	if err := json.NewEncoder(hash).Encode(updates); err != nil {
-		return nil, err
-	}
-	return hash.Sum(nil), nil
-}
-
-func VerifySignedUpdateDescriptor(key []byte, descriptor SignedUpdateDescriptor) ([]updater.Update, error) {
-	calculated, err := updatesHash(key, descriptor.Updates)
-	if err != nil {
-		return nil, fmt.Errorf("calculating signature: %w", err)
-	}
-	if subtle.ConstantTimeCompare(calculated, descriptor.Signature) != 1 {
-		return nil, fmt.Errorf("invalid signature")
-	}
-	return descriptor.Updates, nil
 }
