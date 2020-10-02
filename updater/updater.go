@@ -29,6 +29,8 @@ type Repo interface {
 	// Push snapshots the working tree after an update has been applied, and "publishes".
 	// This is branch to commit. Publishing may mean push, create a PR, tweet the maintainer, whatever.
 	Push(context.Context, ...Update) error
+	// Fetch loads a remote ref without updating the working copy.
+	Fetch(ctx context.Context, branch string) error
 }
 
 type Updater interface {

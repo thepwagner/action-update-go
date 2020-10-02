@@ -167,6 +167,16 @@ func (t *GitRepo) Root() string {
 	return t.wt.Filesystem.Root()
 }
 
+func (t *GitRepo) Fetch(ctx context.Context, branch string) error {
+	refName := fmt.Sprintf("refs/heads/%s", branch)
+	cmd := exec.CommandContext(ctx, "git", "fetch", RemoteName, refName)
+	cmd.Dir = t.Root()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("fetching: %w", err)
+	}
+	return nil
+}
+
 func (t *GitRepo) Push(ctx context.Context, update ...updater.Update) error {
 	commitMessage := t.commitMessage(update...)
 	if err := t.commit(commitMessage); err != nil {
