@@ -7,6 +7,8 @@ import (
 	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/cmd"
+	"github.com/thepwagner/action-update-go/repo"
+	"github.com/thepwagner/action-update-go/updater"
 )
 
 func PullRequest(ctx context.Context, env *cmd.Environment, evt interface{}) error {
@@ -29,24 +31,33 @@ func PullRequest(ctx context.Context, env *cmd.Environment, evt interface{}) err
 
 var _ cmd.Handler = PullRequest
 
-func prReopened(ctx context.Context, env *cmd.Environment, pr *github.PullRequestEvent) error {
-	//_, updater, err := getRepoUpdater(env)
-	//if err != nil {
-	//	return err
-	//}
+func prReopened(ctx context.Context, env *cmd.Environment, evt *github.PullRequestEvent) error {
+	pr := evt.GetPullRequest()
+	base := pr.GetBase().GetRef()
+	head := pr.GetHead().GetRef()
+	log := logrus.WithFields(logrus.Fields{
+		"base":   base,
+		"head":   head,
+		"number": pr.GetNumber(),
+	})
 
-	prRef := pr.GetPullRequest().GetHead().GetRef()
-	logrus.WithField("ref", prRef).Info("PR reopened, recreating update")
+	signed := repo.ExtractSignedUpdateDescriptor(pr.GetBody())
+	if signed == nil {
+		log.Info("ignoring PR")
+		return nil
+	}
+	updates, err := updater.VerifySignedUpdateDescriptor(env.InputSigningKey, *signed)
+	if err != nil {
+		return err
+	}
+	log.WithField("updates", len(updates)).Debug("validated update PR")
 
-	// FIXME: SignedUpdate parsing goes here
-	//base, update := updater.Parse(prRef)
-	//if update == nil {
-	//	logrus.Info("not an update PR")
-	//	return nil
-	//}
-	//
-	//if err := updater.Update(ctx, base, *update); err != nil {
-	//	return fmt.Errorf("performing update: %w", err)
-	//}
+	_, repoUpdater, err := getRepoUpdater(env)
+	if err != nil {
+		return err
+	}
+	if err := repoUpdater.Update(ctx, base, head, updates...); err != nil {
+		return fmt.Errorf("performing update: %w", err)
+	}
 	return nil
 }

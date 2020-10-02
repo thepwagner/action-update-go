@@ -44,6 +44,16 @@ const (
 )
 
 func (d *GitHubPullRequestContent) ParseBody(s string) []updater.Update {
+	signed := ExtractSignedUpdateDescriptor(s)
+	if signed == nil {
+		return nil
+	}
+
+	updates, _ := updater.VerifySignedUpdateDescriptor(d.key, *signed)
+	return updates
+}
+
+func ExtractSignedUpdateDescriptor(s string) *updater.SignedUpdateDescriptor {
 	lastOpen := strings.LastIndex(s, openToken)
 	if lastOpen == -1 {
 		return nil
@@ -55,9 +65,7 @@ func (d *GitHubPullRequestContent) ParseBody(s string) []updater.Update {
 	if err := json.Unmarshal([]byte(raw), &signed); err != nil {
 		return nil
 	}
-
-	updates, _ := updater.VerifySignedUpdateDescriptor(d.key, signed)
-	return updates
+	return &signed
 }
 
 func (d *GitHubPullRequestContent) bodySingle(ctx context.Context, update updater.Update) (string, error) {
