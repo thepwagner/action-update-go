@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -18,8 +17,9 @@ type Config struct {
 }
 
 func (c *Config) factory(root string) updater.Updater {
-	fmt.Println(c.GitHubEventName, c.Tidy)
-	return gomodules.NewUpdater(root)
+	return gomodules.NewUpdater(root,
+		gomodules.WithTidy(c.Tidy),
+	)
 }
 
 func main() {
@@ -27,8 +27,8 @@ func main() {
 	_ = os.Setenv("GOPRIVATE", "*")
 
 	var cfg Config
-	ctx := context.Background()
 	handlers := actions.NewHandlers(&cfg.Config, cfg.factory)
+	ctx := context.Background()
 	if err := cmd.Execute(ctx, &cfg, handlers); err != nil {
 		logrus.WithError(err).Fatal("failed")
 	}

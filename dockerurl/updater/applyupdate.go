@@ -15,7 +15,7 @@ import (
 	"github.com/google/go-github/v32/github"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/sirupsen/logrus"
-	"github.com/thepwagner/action-update-go/updater/docker"
+	"github.com/thepwagner/action-update-docker/docker"
 	updater2 "github.com/thepwagner/action-update/updater"
 )
 

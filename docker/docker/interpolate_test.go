@@ -1,4 +1,4 @@
-package updater_test
+package docker_test
 
 import (
 	"strings"
