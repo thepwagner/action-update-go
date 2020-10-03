@@ -55,6 +55,10 @@ func (g *GitHubRepo) Branch() string                      { return g.repo.Branch
 func (g *GitHubRepo) SetBranch(branch string) error       { return g.repo.SetBranch(branch) }
 func (g *GitHubRepo) NewBranch(base, branch string) error { return g.repo.NewBranch(base, branch) }
 
+func (g *GitHubRepo) Fetch(ctx context.Context, branch string) error {
+	return g.repo.Fetch(ctx, branch)
+}
+
 // Push follows the git push with opening a pull request
 func (g *GitHubRepo) Push(ctx context.Context, updates ...updater.Update) error {
 	if err := g.repo.Push(ctx, updates...); err != nil {

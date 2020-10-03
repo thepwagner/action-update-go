@@ -52,12 +52,18 @@ func prReopened(ctx context.Context, env *cmd.Environment, evt *github.PullReque
 	}
 	log.WithField("updates", len(updates)).Debug("validated update PR")
 
-	_, repoUpdater, err := getRepoUpdater(env)
+	r, repoUpdater, err := getRepoUpdater(env)
 	if err != nil {
 		return err
 	}
+
+	if err := r.Fetch(ctx, base); err != nil {
+		return fmt.Errorf("fetching base: %w", err)
+	}
+
 	if err := repoUpdater.Update(ctx, base, head, updates...); err != nil {
 		return fmt.Errorf("performing update: %w", err)
 	}
+
 	return nil
 }

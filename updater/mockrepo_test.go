@@ -28,6 +28,20 @@ func (_m *mockRepo) Branch() string {
 	return r0
 }
 
+// Fetch provides a mock function with given fields: ctx, branch
+func (_m *mockRepo) Fetch(ctx context.Context, branch string) error {
+	ret := _m.Called(ctx, branch)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, branch)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // NewBranch provides a mock function with given fields: base, branch
 func (_m *mockRepo) NewBranch(base string, branch string) error {
 	ret := _m.Called(base, branch)
