@@ -28,8 +28,9 @@ const (
 )
 
 var updateCmd = &cobra.Command{
-	Use:   "update <url>",
-	Short: "Perform dependency updates",
+	Use:          "update <url>",
+	Short:        "Perform dependency updates",
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		viper.SetDefault(flagKeepTmpDir, false)
 		viper.SetDefault(flagBranchName, "master")
@@ -92,7 +93,7 @@ func cloneAndConfig(ctx context.Context, target, dir string) (*cmd.Config, error
 		return nil, err
 	}
 
-	ghToken := viper.GetString(flagGitHubToken)
+	ghToken := viper.GetString(cfgGitHubToken)
 	gh := gitrepo.NewGitHubClient(ghToken)
 
 	// TODO: find self-references in .github/workflows/*.yaml to guess configuration?

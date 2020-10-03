@@ -10,11 +10,18 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var (
+	cfgFile     string
+	updaterType string
+	logLevel    string
+)
 
 const (
-	flagGitHubToken = "GitHubToken"
-	flagLogLevel    = "LogLevel"
+	flagConfig      = "config"
+	flagUpdaterType = "updater"
+	flagLogLevel    = "log"
+
+	cfgGitHubToken = "GitHubToken"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -23,8 +30,7 @@ var rootCmd = &cobra.Command{
 	Short: "Action-update-go",
 	Long:  `Simulates GitHub Actions environment enough to test action-update-go.`,
 	PersistentPreRunE: func(*cobra.Command, []string) error {
-		viper.SetDefault(flagLogLevel, logrus.InfoLevel.String())
-		level, err := logrus.ParseLevel(viper.GetString(flagLogLevel))
+		level, err := logrus.ParseLevel(logLevel)
 		if err != nil {
 			return err
 		}
@@ -45,31 +51,30 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.action-update-go.yaml)")
+
+	rootCmd.PersistentFlags().StringVar(&cfgFile, flagConfig, "", "config file (default is $HOME/.action-update-go.yaml)")
+
+	rootCmd.PersistentFlags().StringVar(&updaterType, flagUpdaterType, "go", "updater to use")
+	_ = viper.BindPFlag(flagUpdaterType, rootCmd.PersistentFlags().Lookup(flagUpdaterType))
+
+	rootCmd.PersistentFlags().StringVar(&logLevel, flagLogLevel, logrus.InfoLevel.String(), "log level")
+	_ = viper.BindPFlag(flagLogLevel, rootCmd.PersistentFlags().Lookup(flagLogLevel))
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	if cfgFile != "" {
-		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Find home directory.
 		home, err := homedir.Dir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+		if err == nil {
+			viper.AddConfigPath(home)
+			viper.SetConfigName(".action-update-go")
 		}
-
-		// Search config in home directory with name ".action-update-go" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".action-update-go")
 	}
 
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
+	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		logrus.WithField("cfg", viper.ConfigFileUsed()).Debug("using config file")
 	}
 }
