@@ -29,7 +29,11 @@ func CommandExecute(ctx context.Context, dir, name string, args ...string) error
 	if out != nil {
 		defer func() { _ = out.Close() }()
 		// echo command before output:
-		_, _ = fmt.Fprintln(out, append([]string{name}, args...))
+		_, _ = fmt.Fprintf(out, "Command: %s", name)
+		for _, a := range args {
+			_, _ = fmt.Fprintf(out, " %q", a)
+		}
+		_, _ = fmt.Fprintln(out)
 		_, _ = out.Write(buf.Bytes())
 	}
 	return err

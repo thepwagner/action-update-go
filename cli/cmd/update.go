@@ -6,18 +6,28 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/thepwagner/action-update-go/actions"
+	"github.com/thepwagner/action-update-go/cmd"
+	"github.com/thepwagner/action-update-go/common/exec"
+	gitrepo "github.com/thepwagner/action-update-go/repo"
 )
 
-var keep bool
+// TODO: wire to cobra
+var (
+	keep       bool
+	branchName string = "master"
+)
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Perform dependency updates",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		logrus.SetLevel(logrus.DebugLevel)
 		var target string
 		if len(args) > 0 {
 			target = args[0]
@@ -36,7 +46,7 @@ func MockUpdate(ctx context.Context, target string) error {
 	if err != nil {
 		return err
 	}
-	dirLog := logrus.WithField("tempDir", dir)
+	dirLog := logrus.WithField("temp_dir", dir)
 	dirLog.Debug("created tempdir")
 	if !keep {
 		defer func() {
@@ -46,29 +56,59 @@ func MockUpdate(ctx context.Context, target string) error {
 		}()
 	}
 
-	if err := gitClone(ctx, target, dir); err != nil {
+	env, err := cloneAndSetEnv(ctx, target, dir)
+	if err != nil {
+		return err
+	} else if env == nil {
+		return fmt.Errorf("could not detect environment")
+	}
+	dirLog.Info("cloned to tempdir")
+
+	if err := os.Chdir(dir); err != nil {
 		return err
 	}
 
-	return nil
+	return cmd.HandleEvent(ctx, env, actions.Handlers)
 }
 
-func gitClone(ctx context.Context, target, dir string) error {
+func cloneAndSetEnv(ctx context.Context, target, dir string) (*cmd.Environment, error) {
 	targetURL, err := url.Parse(target)
 	if err != nil {
-		return fmt.Errorf("parsing target URL: %w", err)
+		return nil, fmt.Errorf("parsing target URL: %w", err)
 	}
 	if targetURL.Host != "github.com" {
-		return fmt.Errorf("unsupported host")
-	}
-	pathParts := strings.Split(targetURL.Path, "/")
-	if len(pathParts) <= 2 {
-		owner := pathParts[0]
-		repo := pathParts[1]
-		err := exec.Comm
+		return nil, fmt.Errorf("unsupported host")
 	}
 
-	return nil
+	// Interpret the path to decide how to clone, and set environment variables so
+	pathParts := strings.Split(targetURL.Path, "/")
+	if len(pathParts) <= 3 {
+		owner := pathParts[1]
+		repo := pathParts[2]
+		if err := exec.CommandExecute(ctx, dir, "git", "init", "."); err != nil {
+			return nil, fmt.Errorf("git init: %w", err)
+		}
+		remoteURL := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
+		if err := exec.CommandExecute(ctx, dir, "git", "remote", "add", gitrepo.RemoteName, remoteURL); err != nil {
+			return nil, fmt.Errorf("git remote add: %w", err)
+		}
+
+		remoteRef := path.Join("refs/remotes/origin", branchName)
+		refSpec := fmt.Sprintf("+:%s", remoteRef)
+		if err := exec.CommandExecute(ctx, dir, "git", "-c", "protocol.version=2", "fetch",
+			"--prune", "--progress", "--no-recurse-submodules", "--depth=1", gitrepo.RemoteName, refSpec); err != nil {
+			return nil, fmt.Errorf("git fetch: %w", err)
+		}
+
+		if err := exec.CommandExecute(ctx, dir, "git", "checkout", "--progress", "--force", "-B", branchName, remoteRef); err != nil {
+			return nil, fmt.Errorf("git fetch: %w", err)
+		}
+		return &cmd.Environment{
+			GitHubEventName: "workflow_dispatch",
+		}, nil
+	}
+
+	return nil, nil
 }
 
 func init() {
