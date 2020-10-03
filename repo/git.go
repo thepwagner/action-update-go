@@ -177,8 +177,9 @@ func (t *GitRepo) Root() string {
 }
 
 func (t *GitRepo) Fetch(ctx context.Context, branch string) error {
-	refSpec := fmt.Sprintf("%s:%s", branch, branch)
-	if err := exec.CommandExecute(ctx, t.Root(), "git", "fetch", RemoteName, refSpec); err != nil {
+	// TODO: we _should_ be able to just grab the target branch
+	// revisit if there's a repro outside of Actions
+	if err := exec.CommandExecute(ctx, t.Root(), "git", "fetch", RemoteName); err != nil {
 		return fmt.Errorf("fetching: %w", err)
 	}
 	return nil
