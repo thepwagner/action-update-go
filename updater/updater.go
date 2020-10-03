@@ -166,6 +166,12 @@ func (u *RepoUpdater) checkForUpdate(ctx context.Context, log logrus.FieldLogger
 
 func (u *RepoUpdater) serialUpdates(ctx context.Context, base string, updates []Update) error {
 	for _, update := range updates {
+		updateLog := logrus.WithFields(logrus.Fields{
+			"path":     update.Path,
+			"previous": update.Previous,
+			"next":     update.Next,
+		})
+		updateLog.Info("attempting update...")
 		branch := u.branchNamer.Format(base, update)
 		if err := u.repo.NewBranch(base, branch); err != nil {
 			return fmt.Errorf("switching to target branch: %w", err)
@@ -176,6 +182,7 @@ func (u *RepoUpdater) serialUpdates(ctx context.Context, base string, updates []
 		if err := u.repo.Push(ctx, update); err != nil {
 			return fmt.Errorf("pushing update: %w", err)
 		}
+		updateLog.Info("update complete")
 	}
 	return nil
 }

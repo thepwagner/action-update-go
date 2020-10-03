@@ -218,9 +218,11 @@ func (t *GitRepo) diff(ctx context.Context) error {
 	c.Env = []string{"GIT_PAGER=cat"}
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
+	_, _ = fmt.Fprintln(os.Stdout)
 	if err := c.Run(); err != nil {
 		return fmt.Errorf("diffing for push: %w", err)
 	}
+	_, _ = fmt.Fprintln(os.Stdout)
 	return nil
 }
 
