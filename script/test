@@ -2,5 +2,14 @@
 
 ROOT="$(dirname "$0")/.."
 
+GREEN='\033[0;32m'
+NC='\033[0m'
+
 cd "$ROOT"
-go test -cover ./...
+for i in action-update go; do
+  echo -e "${GREEN}> $i${NC}"
+  cd $i
+  go test -cover ./...
+  cd - >/dev/null
+  echo
+done

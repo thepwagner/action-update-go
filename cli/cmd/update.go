@@ -15,9 +15,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/thepwagner/action-update-go/actions"
 	"github.com/thepwagner/action-update-go/cmd"
-	gitrepo "github.com/thepwagner/action-update-go/repo"
+	"github.com/thepwagner/action-update/actions"
+	gitrepo "github.com/thepwagner/action-update/repo"
 )
 
 const (
