@@ -19,6 +19,10 @@ func Execute(ctx context.Context, config interface{}, handlers HandlersByEventNa
 	}
 	cfg := c.cfg()
 
+	return HandleEvent(ctx, cfg, handlers)
+}
+
+func HandleEvent(ctx context.Context, cfg *Config, handlers HandlersByEventName) error {
 	// Is there a handler for this event?
 	log := logrus.WithField("event_name", cfg.GitHubEventName)
 	h, ok := handlers[cfg.GitHubEventName]

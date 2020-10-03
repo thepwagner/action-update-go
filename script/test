@@ -15,4 +15,3 @@ for MOD in $MODULES; do
   go test -cover ./...
   cd - >/dev/null
 done
-

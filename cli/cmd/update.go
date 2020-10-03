@@ -15,9 +15,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/thepwagner/action-update-go/cmd"
+	"github.com/thepwagner/action-update-go/gomodules"
 	"github.com/thepwagner/action-update/actions"
+	"github.com/thepwagner/action-update/cmd"
 	gitrepo "github.com/thepwagner/action-update/repo"
+	"github.com/thepwagner/action-update/updater"
 )
 
 const (
@@ -60,23 +62,27 @@ func MockUpdate(ctx context.Context, target string) error {
 		}()
 	}
 
-	env, err := cloneAndEnv(ctx, target, dir)
+	cfg, err := cloneAndConfig(ctx, target, dir)
 	if err != nil {
 		return err
-	} else if env == nil {
+	} else if cfg == nil {
 		return fmt.Errorf("could not detect environment")
 	}
 	dirLog.Info("cloned to tempdir")
-	env.NoPush = true
+	cfg.NoPush = true
 
 	if err := os.Chdir(dir); err != nil {
 		return err
 	}
 
-	return cmd.HandleEvent(ctx, env, actions.Handlers)
+	// TODO: updater flag
+	updaterFactory := func(root string) updater.Updater { return gomodules.NewUpdater(root) }
+	handlers := actions.NewHandlers(cfg, updaterFactory)
+
+	return cmd.HandleEvent(ctx, cfg, handlers)
 }
 
-func cloneAndEnv(ctx context.Context, target, dir string) (*cmd.Environment, error) {
+func cloneAndConfig(ctx context.Context, target, dir string) (*cmd.Config, error) {
 	parsed, err := parseTargetURL(target)
 	if err != nil {
 		return nil, err
@@ -143,7 +149,7 @@ func (p *parsedTarget) initRepo(ctx context.Context, dir string) error {
 	return nil
 }
 
-func (p *parsedTarget) clonePullRequest(ctx context.Context, gh *github.Client, dir string) (*cmd.Environment, error) {
+func (p *parsedTarget) clonePullRequest(ctx context.Context, gh *github.Client, dir string) (*cmd.Config, error) {
 	// pull request - fetch the pr HEAD and simulate a "reopened" event
 	pr, _, err := gh.PullRequests.Get(ctx, p.owner, p.repo, p.prNumber)
 	if err != nil {
@@ -167,13 +173,13 @@ func (p *parsedTarget) clonePullRequest(ctx context.Context, gh *github.Client, 
 	if err != nil {
 		return nil, fmt.Errorf("creating temp event file: %w", err)
 	}
-	return &cmd.Environment{
+	return &cmd.Config{
 		GitHubEventName: "pull_request",
 		GitHubEventPath: tmpEvt,
 	}, nil
 }
 
-func (p *parsedTarget) cloneEvent(ctx context.Context, dir string) (*cmd.Environment, error) {
+func (p *parsedTarget) cloneEvent(ctx context.Context, dir string) (*cmd.Config, error) {
 	branchName := viper.GetString(flagBranchName)
 	remoteRef := path.Join("refs/remotes/origin", branchName)
 	refSpec := fmt.Sprintf("+:%s", remoteRef)
@@ -185,7 +191,7 @@ func (p *parsedTarget) cloneEvent(ctx context.Context, dir string) (*cmd.Environ
 		return nil, fmt.Errorf("git fetch: %w", err)
 	}
 
-	return &cmd.Environment{
+	return &cmd.Config{
 		GitHubEventName: "schedule",
 	}, nil
 }
