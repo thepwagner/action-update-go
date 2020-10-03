@@ -5,10 +5,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -16,6 +14,7 @@ import (
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfile"
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 	"github.com/sirupsen/logrus"
+	"github.com/thepwagner/action-update-go/common/exec"
 	"github.com/thepwagner/action-update-go/updater"
 )
 
@@ -239,43 +238,16 @@ func ensureGoFileInPath(path string) (func() error, error) {
 
 func (u *Updater) updateGoSum(ctx context.Context, path string) error {
 	// Shell out to the Go SDK for this, so the user has more control over generation:
-	if err := pathGoCmd(ctx, path, "get", "-d", "-v"); err != nil {
+	if err := exec.CommandExecute(ctx, path, "go", "get", "-d", "-v"); err != nil {
 		return fmt.Errorf("updating go.sum: %w", err)
 	}
 
 	if u.Tidy {
-		if err := pathGoCmd(ctx, path, "mod", "tidy"); err != nil {
+		if err := exec.CommandExecute(ctx, path, "go", "mod", "tidy"); err != nil {
 			return fmt.Errorf("tidying go.sum: %w", err)
 		}
 	}
 	return nil
-}
-
-func pathGoCmd(ctx context.Context, path string, args ...string) error {
-	cmd := exec.CommandContext(ctx, "go", args...)
-	cmd.Dir = path
-
-	// Capture output to buffer:
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
-	err := cmd.Run()
-
-	var out io.WriteCloser
-	if err != nil {
-		out = logrus.StandardLogger().WriterLevel(logrus.ErrorLevel)
-	} else if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		out = logrus.StandardLogger().WriterLevel(logrus.DebugLevel)
-	}
-
-	if out != nil {
-		defer func() { _ = out.Close() }()
-		// echo command before output:
-		_, _ = fmt.Fprintln(out, append([]string{"go"}, args...))
-		_, _ = out.Write(buf.Bytes())
-	}
-
-	return err
 }
 
 func (u *Updater) hasVendor(path string) bool {
@@ -284,7 +256,7 @@ func (u *Updater) hasVendor(path string) bool {
 }
 
 func (u *Updater) updateVendor(ctx context.Context, path string) error {
-	if err := pathGoCmd(ctx, path, "mod", "vendor"); err != nil {
+	if err := exec.CommandExecute(ctx, path, "go", "mod", "vendor"); err != nil {
 		return fmt.Errorf("go vendoring: %w", err)
 	}
 	return nil

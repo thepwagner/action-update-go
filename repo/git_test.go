@@ -153,6 +153,32 @@ func TestGitRepo_Push_WithRemote(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestGitRepo_Fetch(t *testing.T) {
+	// Initialize a repo, clone it:
+	upstream := initRepo(t, plumbing.NewBranchReferenceName(branchName))
+	upstreamWt, err := upstream.Worktree()
+	require.NoError(t, err)
+	downstream, err := git.PlainClone(t.TempDir(), false, &git.CloneOptions{
+		URL: upstreamWt.Filesystem.Root(),
+	})
+	require.NoError(t, err)
+
+	// Create a branch in the upstream repo:
+	newBranch := "test-1234"
+	upstreamRepo, err := repo.NewGitRepo(upstream)
+	require.NoError(t, err)
+	err = upstreamRepo.NewBranch(branchName, newBranch)
+	require.NoError(t, err)
+
+	// Fetch from the downstream repo, the branch is usable:
+	downstreamRepo, err := repo.NewGitRepo(downstream)
+	require.NoError(t, err)
+	err = downstreamRepo.Fetch(context.Background(), newBranch)
+	require.NoError(t, err)
+	err = downstreamRepo.NewBranch(newBranch, updateBranch)
+	require.NoError(t, err)
+}
+
 func addTempFile(t *testing.T, gr *repo.GitRepo) string {
 	f, err := ioutil.TempFile(gr.Root(), "my-awesome-file-")
 	require.NoError(t, err)
