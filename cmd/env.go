@@ -22,6 +22,8 @@ type Environment struct {
 	InputLogLevel   string `env:"INPUT_LOG_LEVEL" envDefault:"debug"`
 	InputUpdater    string `env:"INPUT_UPDATER"`
 	InputSigningKey []byte `env:"INPUT_SIGNING_KEY"`
+
+	NoPush bool
 }
 
 func ParseEnvironment() (*Environment, error) {

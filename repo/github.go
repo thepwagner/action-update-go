@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/google/go-github/v32/github"
@@ -13,7 +14,7 @@ import (
 
 // GitHubRepo wraps GitRepo to create a GitHub PR for the pushed branch.
 type GitHubRepo struct {
-	repo updater.Repo
+	repo *GitRepo
 
 	prContent PullRequestContent
 	github    *github.Client
@@ -44,10 +45,14 @@ func NewGitHubRepo(repo *GitRepo, hmacKey []byte, repoNameOwner, token string) (
 }
 
 func NewGitHubClient(token string) *github.Client {
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	tc := oauth2.NewClient(context.Background(), ts)
-	ghClient := github.NewClient(tc)
-	return ghClient
+	var client *http.Client
+	if token != "" {
+		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+		client = oauth2.NewClient(context.Background(), ts)
+	} else {
+		client = http.DefaultClient
+	}
+	return github.NewClient(client)
 }
 
 func (g *GitHubRepo) Root() string                        { return g.repo.Root() }
@@ -55,11 +60,19 @@ func (g *GitHubRepo) Branch() string                      { return g.repo.Branch
 func (g *GitHubRepo) SetBranch(branch string) error       { return g.repo.SetBranch(branch) }
 func (g *GitHubRepo) NewBranch(base, branch string) error { return g.repo.NewBranch(base, branch) }
 
+func (g *GitHubRepo) Fetch(ctx context.Context, branch string) error {
+	return g.repo.Fetch(ctx, branch)
+}
+
 // Push follows the git push with opening a pull request
 func (g *GitHubRepo) Push(ctx context.Context, updates ...updater.Update) error {
 	if err := g.repo.Push(ctx, updates...); err != nil {
 		return err
 	}
+	if g.repo.NoPush {
+		return nil
+	}
+
 	if err := g.createPR(ctx, updates); err != nil {
 		return err
 	}

@@ -52,6 +52,7 @@ func getRepoUpdater(env *cmd.Environment) (updater.Repo, *updater.RepoUpdater, e
 	if err != nil {
 		return nil, nil, err
 	}
+	gitRepo.NoPush = env.NoPush
 
 	var modRepo updater.Repo
 	if env.GitHubRepository != "" && env.GitHubToken != "" {

@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/sirupsen/logrus"
+	"github.com/thepwagner/action-update-go/cmd"
 	"github.com/thepwagner/action-update-go/updater"
 )
 
@@ -24,6 +26,7 @@ type GitRepo struct {
 	author        GitIdentity
 	remotes       bool
 	commitMessage commitMessageGen
+	NoPush        bool
 }
 
 var _ updater.Repo = (*GitRepo)(nil)
@@ -110,6 +113,7 @@ func (t *GitRepo) SetBranch(branch string) error {
 }
 
 func (t *GitRepo) setBranch(refName plumbing.ReferenceName) error {
+	logrus.WithField("ref_name", refName).Debug("checking out ref")
 	err := t.wt.Checkout(&git.CheckoutOptions{
 		Branch: refName,
 		Force:  true,
@@ -144,7 +148,12 @@ func (t *GitRepo) NewBranch(base, branch string) error {
 
 	// Create branch from ref and configure with remote:
 	branchRefName := plumbing.NewBranchReferenceName(branch)
-	if err := t.repo.Storer.SetReference(plumbing.NewHashReference(branchRefName, baseRef.Hash())); err != nil {
+	logrus.WithFields(logrus.Fields{
+		"ref_name": branchRefName,
+		"ref_hash": baseRef.Hash(),
+	}).Debug("storing reference")
+	branchRef := plumbing.NewHashReference(branchRefName, baseRef.Hash())
+	if err := t.repo.Storer.SetReference(branchRef); err != nil {
 		return fmt.Errorf("creating branch reference: %w", err)
 	}
 	err = t.repo.CreateBranch(&config.Branch{
@@ -157,7 +166,7 @@ func (t *GitRepo) NewBranch(base, branch string) error {
 	}
 	log.WithField("base_ref", baseRef.Name()).Debug("branch created")
 
-	if err := t.setBranch(branchRefName); err != nil {
+	if err := t.setBranch(branchRef.Name()); err != nil {
 		return err
 	}
 	return nil
@@ -167,14 +176,53 @@ func (t *GitRepo) Root() string {
 	return t.wt.Filesystem.Root()
 }
 
+func (t *GitRepo) Fetch(ctx context.Context, branch string) error {
+	refSpec := fmt.Sprintf("+%s:%s", branch, branch)
+	if err := cmd.CommandExecute(ctx, t.Root(), "git", "fetch", RemoteName, refSpec); err != nil {
+		return fmt.Errorf("fetching: %w", err)
+	}
+
+	// Re-open repository to reset object cache:
+	repo, err := git.PlainOpen(t.Root())
+	if err != nil {
+		return err
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		return err
+	}
+	t.repo = repo
+	t.wt = wt
+	return nil
+}
+
 func (t *GitRepo) Push(ctx context.Context, update ...updater.Update) error {
 	commitMessage := t.commitMessage(update...)
 	if err := t.commit(commitMessage); err != nil {
 		return err
 	}
+
+	if t.NoPush {
+		return t.diff(ctx)
+	}
+
 	if err := t.push(ctx); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (t *GitRepo) diff(ctx context.Context) error {
+	c := exec.CommandContext(ctx, "git", "show", "--color=always", "HEAD")
+	c.Dir = t.Root()
+	c.Env = []string{"GIT_PAGER=cat"}
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	_, _ = fmt.Fprintln(os.Stdout)
+	if err := c.Run(); err != nil {
+		return fmt.Errorf("diffing for push: %w", err)
+	}
+	_, _ = fmt.Fprintln(os.Stdout)
 	return nil
 }
 
@@ -227,9 +275,8 @@ func (t *GitRepo) push(ctx context.Context) error {
 
 	// go-git supports Push, but not the [http "https://github.com/"] .gitconfig that actions/checkout uses for auth
 	// we could extract from u.repo.Config().Raw, but who are we trying to impress?
-	cmd := exec.CommandContext(ctx, "git", "push", "-f")
-	cmd.Dir = t.Root()
-	if err := cmd.Run(); err != nil {
+	err := cmd.CommandExecute(ctx, t.Root(), "git", "push", "-f")
+	if err != nil {
 		return fmt.Errorf("pushing: %w", err)
 	}
 	logrus.Debug("pushed to remote")

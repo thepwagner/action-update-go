@@ -16,7 +16,10 @@ func Run(ctx context.Context, handlers HandlersByEventName) error {
 		return err
 	}
 	logrus.SetLevel(env.LogLevel())
+	return HandleEvent(ctx, env, handlers)
+}
 
+func HandleEvent(ctx context.Context, env *Environment, handlers HandlersByEventName) error {
 	log := logrus.WithField("event_name", env.GitHubEventName)
 	h, ok := handlers[env.GitHubEventName]
 	if !ok {
