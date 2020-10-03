@@ -6,10 +6,13 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 
 cd "$ROOT"
-for i in action-update go; do
-  echo -e "${GREEN}> $i${NC}"
-  cd $i
+
+MODULES=$(find . -maxdepth 2 -name "go.mod" | sort)
+for MOD in $MODULES; do
+  NAME=$(basename "$(dirname "$MOD")")
+  echo -e "${GREEN}> ${NAME}${NC}"
+  cd "$NAME"
   go test -cover ./...
   cd - >/dev/null
-  echo
 done
+
