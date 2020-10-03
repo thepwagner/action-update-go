@@ -11,6 +11,8 @@ import (
 
 var cfgFile string
 
+const flagGitHubToken = "GitHubToken"
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "action-update-go",
@@ -45,9 +47,9 @@ func initConfig() {
 			os.Exit(1)
 		}
 
-		// Search config in home directory with name ".cli" (without extension).
+		// Search config in home directory with name ".action-update-go" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".action-update-gos")
+		viper.SetConfigName(".action-update-go")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

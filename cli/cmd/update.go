@@ -2,15 +2,19 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
+	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/thepwagner/action-update-go/actions"
 	"github.com/thepwagner/action-update-go/cmd"
 	"github.com/thepwagner/action-update-go/common/exec"
@@ -56,7 +60,7 @@ func MockUpdate(ctx context.Context, target string) error {
 		}()
 	}
 
-	env, err := cloneAndSetEnv(ctx, target, dir)
+	env, err := cloneAndEnv(ctx, target, dir)
 	if err != nil {
 		return err
 	} else if env == nil {
@@ -71,7 +75,7 @@ func MockUpdate(ctx context.Context, target string) error {
 	return cmd.HandleEvent(ctx, env, actions.Handlers)
 }
 
-func cloneAndSetEnv(ctx context.Context, target, dir string) (*cmd.Environment, error) {
+func cloneAndEnv(ctx context.Context, target, dir string) (*cmd.Environment, error) {
 	targetURL, err := url.Parse(target)
 	if err != nil {
 		return nil, fmt.Errorf("parsing target URL: %w", err)
@@ -80,35 +84,92 @@ func cloneAndSetEnv(ctx context.Context, target, dir string) (*cmd.Environment, 
 		return nil, fmt.Errorf("unsupported host")
 	}
 
-	// Interpret the path to decide how to clone, and set environment variables so
-	pathParts := strings.Split(targetURL.Path, "/")
-	if len(pathParts) <= 3 {
-		owner := pathParts[1]
-		repo := pathParts[2]
-		if err := exec.CommandExecute(ctx, dir, "git", "init", "."); err != nil {
-			return nil, fmt.Errorf("git init: %w", err)
-		}
-		remoteURL := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
-		if err := exec.CommandExecute(ctx, dir, "git", "remote", "add", gitrepo.RemoteName, remoteURL); err != nil {
-			return nil, fmt.Errorf("git remote add: %w", err)
-		}
+	if err := viper.WriteConfig(); err != nil {
+		return nil, err
+	}
+	gh := gitrepo.NewGitHubClient(viper.GetString(flagGitHubToken))
 
+	// Identify the repo from the provided URL, initialize remote:
+	pathParts := strings.Split(targetURL.Path, "/")
+	if len(pathParts) < 3 {
+		return nil, fmt.Errorf("could not parse repo from path")
+	}
+	owner := pathParts[1]
+	repo := pathParts[2]
+	if err := exec.CommandExecute(ctx, dir, "git", "init", "."); err != nil {
+		return nil, fmt.Errorf("git init: %w", err)
+	}
+	remoteURL := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
+	if err := exec.CommandExecute(ctx, dir, "git", "remote", "add", gitrepo.RemoteName, remoteURL); err != nil {
+		return nil, fmt.Errorf("git remote add: %w", err)
+	}
+
+	// TODO: find references in .github/workflows/*.yaml to interpret configuration?
+
+	// Interpret the path to decide how to clone and what event to simulate:
+	if len(pathParts) == 3 {
+		// owner+repo - fetch the default branch and simulate a "schedule" event
 		remoteRef := path.Join("refs/remotes/origin", branchName)
 		refSpec := fmt.Sprintf("+:%s", remoteRef)
-		if err := exec.CommandExecute(ctx, dir, "git", "-c", "protocol.version=2", "fetch",
+		if err := exec.CommandExecute(ctx, dir, "git", "-c", "protocol.version=2", "fetch", "--no-tags",
 			"--prune", "--progress", "--no-recurse-submodules", "--depth=1", gitrepo.RemoteName, refSpec); err != nil {
 			return nil, fmt.Errorf("git fetch: %w", err)
 		}
-
 		if err := exec.CommandExecute(ctx, dir, "git", "checkout", "--progress", "--force", "-B", branchName, remoteRef); err != nil {
 			return nil, fmt.Errorf("git fetch: %w", err)
 		}
+
 		return &cmd.Environment{
-			GitHubEventName: "workflow_dispatch",
+			GitHubEventName: "schedule",
+		}, nil
+	}
+
+	if len(pathParts) == 5 && pathParts[3] == "pull" {
+		// pull request - fetch the pr HEAD and simulate a "reopened" event
+		prNumber, err := strconv.Atoi(pathParts[4])
+		if err != nil {
+			return nil, fmt.Errorf("parsing PR number: %w", err)
+		}
+
+		pr, _, err := gh.PullRequests.Get(ctx, owner, repo, prNumber)
+		if err != nil {
+			return nil, fmt.Errorf("getting PR: %w", err)
+		}
+
+		remoteRef := fmt.Sprintf("refs/remotes/pull/%d/merge", prNumber)
+		refSpec := fmt.Sprintf("+%s:%s", pr.GetMergeCommitSHA(), remoteRef)
+		if err := exec.CommandExecute(ctx, dir, "git", "-c", "protocol.version=2", "fetch", "--no-tags",
+			"--prune", "--progress", "--no-recurse-submodules", "--depth=1", gitrepo.RemoteName, refSpec); err != nil {
+			return nil, fmt.Errorf("git fetch: %w", err)
+		}
+		if err := exec.CommandExecute(ctx, dir, "git", "checkout", "--progress", "--force", remoteRef); err != nil {
+			return nil, fmt.Errorf("git fetch: %w", err)
+		}
+
+		tmpEvt, err := tmpEventFile(&github.PullRequestEvent{
+			Action:      github.String("reopened"),
+			PullRequest: pr,
+		})
+		return &cmd.Environment{
+			GitHubEventName: "pull_request",
+			GitHubEventPath: tmpEvt,
 		}, nil
 	}
 
 	return nil, nil
+}
+
+func tmpEventFile(evt interface{}) (string, error) {
+	f, err := ioutil.TempFile("", "action-update-go-event-*")
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	if err := json.NewEncoder(f).Encode(evt); err != nil {
+		return "", err
+	}
+	return f.Name(), nil
 }
 
 func init() {

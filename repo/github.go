@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/google/go-github/v32/github"
@@ -44,10 +45,14 @@ func NewGitHubRepo(repo *GitRepo, hmacKey []byte, repoNameOwner, token string) (
 }
 
 func NewGitHubClient(token string) *github.Client {
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	tc := oauth2.NewClient(context.Background(), ts)
-	ghClient := github.NewClient(tc)
-	return ghClient
+	var client *http.Client
+	if token != "" {
+		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+		client = oauth2.NewClient(context.Background(), ts)
+	} else {
+		client = http.DefaultClient
+	}
+	return github.NewClient(client)
 }
 
 func (g *GitHubRepo) Root() string                        { return g.repo.Root() }
