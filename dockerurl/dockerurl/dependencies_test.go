@@ -1,14 +1,14 @@
-package updater_test
+package dockerurl_test
 
 import (
 	"testing"
 
-	"github.com/thepwagner/action-update-go/updatertest"
-	updater2 "github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updatertest"
 )
 
 func TestUpdater_Dependencies(t *testing.T) {
-	cases := map[string][]updater2.Dependency{
+	cases := map[string][]updater.Dependency{
 		"simple": {
 			{Path: "github.com/containerd/containerd/releases", Version: "v1.4.0"},
 		},

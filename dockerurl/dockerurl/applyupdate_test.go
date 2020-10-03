@@ -1,4 +1,4 @@
-package updater_test
+package dockerurl_test
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update-go/updatertest"
-	updater2 "github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updatertest"
 )
 
 func TestUpdater_ApplyUpdate_Simple(t *testing.T) {
@@ -29,7 +29,7 @@ func TestUpdater_ApplyUpdate_Simple(t *testing.T) {
 func TestUpdater_ApplyUpdate_Hash(t *testing.T) {
 	t.Skip("fetches zipfile")
 
-	elixirUpdate := updater2.Update{
+	elixirUpdate := updater.Update{
 		Path:     "github.com/elixir-lang/elixir/releases",
 		Previous: "v1.10.3",
 		Next:     "v1.10.4",
@@ -47,7 +47,7 @@ func TestUpdater_ApplyUpdate_Hash(t *testing.T) {
 }
 
 func TestUpdater_ApplyUpdate_Buf(t *testing.T) {
-	bufUpdate := updater2.Update{
+	bufUpdate := updater.Update{
 		Path:     "github.com/bufbuild/buf/releases",
 		Previous: "v0.23.0",
 		Next:     "v0.24.0",

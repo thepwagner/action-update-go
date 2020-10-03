@@ -1,4 +1,4 @@
-package updater_test
+package dockerurl_test
 
 import (
 	"context"
@@ -8,9 +8,9 @@ import (
 	"github.com/google/go-github/v32/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/thepwagner/action-update-go/updater/dockerurl"
-	"github.com/thepwagner/action-update-go/updatertest"
-	updater2 "github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update-dockerurl/dockerurl"
+	"github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updatertest"
 )
 
 func TestUpdater_Check(t *testing.T) {
@@ -64,7 +64,7 @@ func TestUpdater_Check(t *testing.T) {
 			if tc.update == nil {
 				assert.Nil(t, u)
 			} else {
-				assert.Equal(t, &updater2.Update{
+				assert.Equal(t, &updater.Update{
 					Path:     depPath,
 					Previous: previousVersion,
 					Next:     *tc.update,
@@ -78,7 +78,7 @@ func TestUpdater_Check(t *testing.T) {
 
 func TestUpdater_Check_Unknown(t *testing.T) {
 	u := dockerurl.NewUpdater("")
-	_, err := u.Check(context.Background(), updater2.Dependency{Path: "foo.com/bar"})
+	_, err := u.Check(context.Background(), updater.Dependency{Path: "foo.com/bar"})
 	assert.Error(t, err)
 }
 
@@ -98,37 +98,37 @@ func TestUpdater_CheckLive(t *testing.T) {
 	t.Skip("hardcodes assumptions about latest releases")
 
 	cases := []struct {
-		dep  updater2.Dependency
+		dep  updater.Dependency
 		next *string
 	}{
 		{
-			dep: updater2.Dependency{
+			dep: updater.Dependency{
 				Path:    "github.com/containerd/containerd/releases",
 				Version: "v1.4.0",
 			},
 			next: github.String("v1.4.1"),
 		},
 		{
-			dep: updater2.Dependency{
+			dep: updater.Dependency{
 				Path:    "github.com/containerd/containerd/releases",
 				Version: "v1.4.1",
 			},
 		},
 		{
-			dep: updater2.Dependency{
+			dep: updater.Dependency{
 				Path:    "github.com/torvalds/linux/releases",
 				Version: "v5.8",
 			},
 		},
 		{
-			dep: updater2.Dependency{
+			dep: updater.Dependency{
 				Path:    "github.com/hashicorp/terraform/releases",
 				Version: "v0.13.0",
 			},
 			next: github.String("v0.13.3"),
 		},
 		{
-			dep: updater2.Dependency{
+			dep: updater.Dependency{
 				Path:    "github.com/elixir-lang/elixir/releases",
 				Version: "v1.10.3",
 			},

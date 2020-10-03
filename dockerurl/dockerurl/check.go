@@ -1,4 +1,4 @@
-package updater
+package dockerurl
 
 import (
 	"context"
@@ -9,17 +9,17 @@ import (
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
-	updater2 "github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updater"
 )
 
-func (u *Updater) Check(ctx context.Context, dependency updater2.Dependency) (*updater2.Update, error) {
+func (u *Updater) Check(ctx context.Context, dependency updater.Dependency) (*updater.Update, error) {
 	if strings.HasPrefix(dependency.Path, "github.com/") {
 		return u.checkGitHubRelease(ctx, dependency)
 	}
 	return nil, fmt.Errorf("unknown dependency: %s", dependency.Path)
 }
 
-func (u *Updater) checkGitHubRelease(ctx context.Context, dependency updater2.Dependency) (*updater2.Update, error) {
+func (u *Updater) checkGitHubRelease(ctx context.Context, dependency updater.Dependency) (*updater.Update, error) {
 	candidates, err := u.listGitHubReleases(ctx, dependency)
 	if err != nil {
 		return nil, err
@@ -37,13 +37,13 @@ func (u *Updater) checkGitHubRelease(ctx context.Context, dependency updater2.De
 	})
 	if semver.Compare(latest, dependency.Version) > 0 {
 		log.Info("update available")
-		return &updater2.Update{Path: dependency.Path, Previous: dependency.Version, Next: latest}, nil
+		return &updater.Update{Path: dependency.Path, Previous: dependency.Version, Next: latest}, nil
 	}
 	log.Debug("no update available")
 	return nil, nil
 }
 
-func (u *Updater) listGitHubReleases(ctx context.Context, dependency updater2.Dependency) ([]string, error) {
+func (u *Updater) listGitHubReleases(ctx context.Context, dependency updater.Dependency) ([]string, error) {
 	owner, name := parseGitHubRelease(dependency.Path)
 	releases, _, err := u.ghRepos.ListReleases(ctx, owner, name, &github.ListOptions{PerPage: 100})
 	if err != nil {

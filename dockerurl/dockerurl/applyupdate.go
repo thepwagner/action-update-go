@@ -1,4 +1,4 @@
-package updater
+package dockerurl
 
 import (
 	"context"
@@ -16,10 +16,10 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-docker/docker"
-	updater2 "github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updater"
 )
 
-func (u *Updater) ApplyUpdate(ctx context.Context, update updater2.Update) error {
+func (u *Updater) ApplyUpdate(ctx context.Context, update updater.Update) error {
 	_, name := parseGitHubRelease(update.Path)
 	nameUpper := strings.ToUpper(name)
 
@@ -45,7 +45,7 @@ func (u *Updater) ApplyUpdate(ctx context.Context, update updater2.Update) error
 	})
 }
 
-func (u *Updater) collectPatterns(ctx context.Context, parsed *parser.Result, versionKeys, hashKeys []string, update updater2.Update) map[string]string {
+func (u *Updater) collectPatterns(ctx context.Context, parsed *parser.Result, versionKeys, hashKeys []string, update updater.Update) map[string]string {
 	i := docker.NewInterpolation(parsed)
 	patterns := map[string]string{}
 	var versionHit bool
@@ -94,7 +94,7 @@ func (u *Updater) collectPatterns(ctx context.Context, parsed *parser.Result, ve
 	return patterns
 }
 
-func (u *Updater) updatedHash(ctx context.Context, update updater2.Update, oldHash string) (string, error) {
+func (u *Updater) updatedHash(ctx context.Context, update updater.Update, oldHash string) (string, error) {
 	// Fetch the previous release:
 	owner, repoName := parseGitHubRelease(update.Path)
 	prevRelease, _, err := u.ghRepos.GetReleaseByTag(ctx, owner, repoName, update.Previous)
@@ -184,7 +184,7 @@ func (u *Updater) isShasumAsset(ctx context.Context, asset *github.ReleaseAsset,
 	return strings.Split(s, "\n"), nil
 }
 
-func (u *Updater) updatedHashFromShasumAsset(ctx context.Context, asset *github.ReleaseAsset, oldContents []string, oldHash string, update updater2.Update) (string, error) {
+func (u *Updater) updatedHashFromShasumAsset(ctx context.Context, asset *github.ReleaseAsset, oldContents []string, oldHash string, update updater.Update) (string, error) {
 	res, err := u.getUpdatedAsset(ctx, asset, update)
 	if err != nil {
 		return "", err
@@ -227,7 +227,7 @@ func (u *Updater) updatedHashFromShasumAsset(ctx context.Context, asset *github.
 	return "", nil
 }
 
-func (u *Updater) getUpdatedAsset(ctx context.Context, asset *github.ReleaseAsset, update updater2.Update) (*http.Response, error) {
+func (u *Updater) getUpdatedAsset(ctx context.Context, asset *github.ReleaseAsset, update updater.Update) (*http.Response, error) {
 	newURL := asset.GetBrowserDownloadURL()
 	newURL = strings.ReplaceAll(newURL, update.Previous, update.Next)
 	newURL = strings.ReplaceAll(newURL, update.Previous[1:], update.Next[1:])
@@ -274,7 +274,7 @@ func hasher(oldHash string) (hash.Hash, bool) {
 	}
 }
 
-func (u *Updater) updatedHashFromAsset(ctx context.Context, asset *github.ReleaseAsset, update updater2.Update, oldHash string) (string, error) {
+func (u *Updater) updatedHashFromAsset(ctx context.Context, asset *github.ReleaseAsset, update updater.Update, oldHash string) (string, error) {
 	res, err := u.getUpdatedAsset(ctx, asset, update)
 	if err != nil {
 		return "", err
