@@ -9,7 +9,7 @@ import (
 	deepcopy "github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	updater2 "github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updater"
 )
 
 func TempDirFromFixture(t *testing.T, fixture string) string {
@@ -19,11 +19,8 @@ func TempDirFromFixture(t *testing.T, fixture string) string {
 	return tempDir
 }
 
-// Factory provides UpdaterS for testing, masking any arguments other than the repo root.
-type Factory func(root string) updater2.Updater
-
 // DependenciesFixtures verifies .Dependencies() on an Updater initialized from a fixture.
-func DependenciesFixtures(t *testing.T, factory Factory, cases map[string][]updater2.Dependency) {
+func DependenciesFixtures(t *testing.T, factory updater.Factory, cases map[string][]updater.Dependency) {
 	for fixture, expected := range cases {
 		t.Run(fixture, func(t *testing.T) {
 			tempDir := TempDirFromFixture(t, fixture)
@@ -35,7 +32,7 @@ func DependenciesFixtures(t *testing.T, factory Factory, cases map[string][]upda
 	}
 }
 
-func CheckInFixture(t *testing.T, fixture string, factory Factory, dep updater2.Dependency) *updater2.Update {
+func CheckInFixture(t *testing.T, fixture string, factory updater.Factory, dep updater.Dependency) *updater.Update {
 	tempDir := TempDirFromFixture(t, fixture)
 	u := factory(tempDir)
 	update, err := u.Check(context.Background(), dep)
@@ -43,11 +40,11 @@ func CheckInFixture(t *testing.T, fixture string, factory Factory, dep updater2.
 	return update
 }
 
-func ApplyUpdateToFixture(t *testing.T, fixture string, factory Factory, up updater2.Update) string {
+func ApplyUpdateToFixture(t *testing.T, fixture string, factory updater.Factory, up updater.Update) string {
 	dir, f := filepath.Split(fixture)
 
 	var tempDir string
-	var u updater2.Updater
+	var u updater.Updater
 	if dir != "" {
 		tempDir = TempDirFromFixture(t, dir)
 		u = factory(filepath.Join(tempDir, f))

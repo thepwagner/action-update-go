@@ -5,4 +5,6 @@ import (
 )
 
 // Handler responds to a deserialized GitHub event
-type Handler func(ctx context.Context, env *Environment, evt interface{}) error
+type Handler func(ctx context.Context, evt interface{}) error
+
+type HandlersByEventName map[string]Handler

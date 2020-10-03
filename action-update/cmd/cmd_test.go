@@ -13,7 +13,7 @@ import (
 	"github.com/thepwagner/action-update/cmd"
 )
 
-func TestRun(t *testing.T) {
+func TestExecute(t *testing.T) {
 	_ = os.Setenv("GITHUB_EVENT_NAME", "issue_comment")
 	eventPath := filepath.Join(t.TempDir(), "event.json")
 	err := ioutil.WriteFile(eventPath, []byte(`{}`), 0600)
@@ -21,9 +21,8 @@ func TestRun(t *testing.T) {
 	_ = os.Setenv("GITHUB_EVENT_PATH", eventPath)
 
 	ctx := context.Background()
-	err = cmd.Run(ctx, cmd.HandlersByEventName{
-		"issue_comment": func(_ context.Context, env *cmd.Environment, evt interface{}) error {
-			assert.Equal(t, eventPath, env.GitHubEventPath)
+	err = cmd.Execute(ctx, &cmd.Config{}, cmd.HandlersByEventName{
+		"issue_comment": func(_ context.Context, evt interface{}) error {
 			assert.IsType(t, &github.IssueCommentEvent{}, evt)
 			return nil
 		},

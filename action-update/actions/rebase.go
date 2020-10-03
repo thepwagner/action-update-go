@@ -6,12 +6,11 @@ import (
 
 	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
-	"github.com/thepwagner/action-update/cmd"
 	"github.com/thepwagner/action-update/repo"
 	"github.com/thepwagner/action-update/updater"
 )
 
-func PullRequest(ctx context.Context, env *cmd.Environment, evt interface{}) error {
+func (h *handler) PullRequest(ctx context.Context, evt interface{}) error {
 	pr, ok := evt.(*github.PullRequestEvent)
 	if !ok {
 		return fmt.Errorf("invalid event type: %T", evt)
@@ -19,7 +18,7 @@ func PullRequest(ctx context.Context, env *cmd.Environment, evt interface{}) err
 
 	switch pr.GetAction() {
 	case "reopened":
-		return prReopened(ctx, env, pr)
+		return h.prReopened(ctx, pr)
 	case "assigned", "unassigned", "review_requested", "review_request_removed", "labeled", "unlabeled",
 		"opened", "edited", "closed", "ready_for_review", "locked", "unlocked":
 		// pass
@@ -28,10 +27,7 @@ func PullRequest(ctx context.Context, env *cmd.Environment, evt interface{}) err
 	}
 	return nil
 }
-
-var _ cmd.Handler = PullRequest
-
-func prReopened(ctx context.Context, env *cmd.Environment, evt *github.PullRequestEvent) error {
+func (h *handler) prReopened(ctx context.Context, evt *github.PullRequestEvent) error {
 	pr := evt.GetPullRequest()
 	base := pr.GetBase().GetRef()
 	head := pr.GetHead().GetRef()
@@ -46,17 +42,19 @@ func prReopened(ctx context.Context, env *cmd.Environment, evt *github.PullReque
 		log.Info("ignoring PR")
 		return nil
 	}
-	updates, err := updater.VerifySignedUpdateDescriptor(env.InputSigningKey, *signed)
+	updates, err := updater.VerifySignedUpdateDescriptor(h.cfg.InputSigningKey, *signed)
 	if err != nil {
 		return err
 	}
 	log.WithField("updates", len(updates)).Debug("validated update PR")
 
-	r, repoUpdater, err := getRepoUpdater(env)
+	r, err := h.repo()
 	if err != nil {
 		return err
 	}
+	repoUpdater := h.repoUpdater(r)
 
+	// Since actions/checkout will default to only the PR head ref, fetch the base ref before recreating:
 	if err := r.Fetch(ctx, base); err != nil {
 		return fmt.Errorf("fetching base: %w", err)
 	}

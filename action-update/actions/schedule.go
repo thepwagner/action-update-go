@@ -2,21 +2,20 @@ package actions
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/go-git/go-git/v5"
 	"github.com/sirupsen/logrus"
-	"github.com/thepwagner/action-update/cmd"
-	gitrepo "github.com/thepwagner/action-update/repo"
-	"github.com/thepwagner/action-update/updater"
 )
 
-func Schedule(ctx context.Context, env *cmd.Environment, _ interface{}) error {
-	repo, upd, err := getRepoUpdater(env)
+// UpdateAll tries to update all dependencies
+func (h *handler) UpdateAll(ctx context.Context, _ interface{}) error {
+	// Open git repo, prepare updater:
+	repo, err := h.repo()
 	if err != nil {
 		return err
 	}
+	repoUpdater := h.repoUpdater(repo)
 
+	// Capture initial branch, and revert when done:
 	initialBranch := repo.Branch()
 	defer func() {
 		if err := repo.SetBranch(initialBranch); err != nil {
@@ -25,61 +24,11 @@ func Schedule(ctx context.Context, env *cmd.Environment, _ interface{}) error {
 	}()
 
 	// If branches were provided as input, target those:
-	if branches := env.Branches(); len(branches) > 0 {
-		if err := upd.UpdateAll(ctx, branches...); err != nil {
-			return err
-		}
-		return nil
+	if branches := h.cfg.Branches(); len(branches) > 0 {
+		return repoUpdater.UpdateAll(ctx, branches...)
 	}
 
 	// No branches as input, fallback to current branch:
-	if err := upd.UpdateAll(ctx, initialBranch); err != nil {
-		return err
-	}
-	return nil
+	return repoUpdater.UpdateAll(ctx, initialBranch)
 }
 
-var _ cmd.Handler = Schedule
-
-func getRepoUpdater(env *cmd.Environment) (updater.Repo, *updater.RepoUpdater, error) {
-	repo, err := git.PlainOpen(".")
-	if err != nil {
-		return nil, nil, err
-	}
-	gitRepo, err := gitrepo.NewGitRepo(repo)
-	if err != nil {
-		return nil, nil, err
-	}
-	gitRepo.NoPush = env.NoPush
-
-	var modRepo updater.Repo
-	if env.GitHubRepository != "" && env.GitHubToken != "" {
-		modRepo, err = gitrepo.NewGitHubRepo(gitRepo, env.InputSigningKey, env.GitHubRepository, env.GitHubToken)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		modRepo = gitRepo
-	}
-
-	modUpdater := getUpdater(modRepo.Root(), env.InputUpdater)
-	batches, err := env.Batches()
-	if err != nil {
-		return nil, nil, fmt.Errorf("parsing batches")
-	}
-	repoUpdater := updater.NewRepoUpdater(modRepo, modUpdater, updater.WithBatches(batches))
-	return gitRepo, repoUpdater, nil
-}
-
-func getUpdater(root, updaterName string) updater.Updater {
-	//switch updaterName {
-	//case "dockerurl":
-	//	return dockerurl.NewUpdater(root)
-	//case "", "gomod", "gomodules":
-	//	return gomod.NewUpdater(root)
-	//default:
-	//	logrus.WithField("updater", updaterName).Warn("unknown updater, defaulting to go modules")
-	//	return gomod.NewUpdater(root)
-	//}
-	return nil
-}

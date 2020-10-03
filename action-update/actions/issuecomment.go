@@ -9,7 +9,8 @@ import (
 	"github.com/thepwagner/action-update/cmd"
 )
 
-func IssueComment(_ context.Context, _ *cmd.Environment, evt interface{}) error {
+// IssueComment is for debugging.
+func IssueComment(_ context.Context, evt interface{}) error {
 	issueComment, ok := evt.(*github.IssueCommentEvent)
 	if !ok {
 		return fmt.Errorf("unexpected event")

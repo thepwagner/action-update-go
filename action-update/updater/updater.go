@@ -39,6 +39,9 @@ type Updater interface {
 	ApplyUpdate(context.Context, Update) error
 }
 
+// Factory provides UpdaterS for testing, masking any arguments other than the repo root.
+type Factory func(root string) Updater
+
 // NewRepoUpdater creates RepoUpdater.
 func NewRepoUpdater(repo Repo, updater Updater, opts ...RepoUpdaterOpt) *RepoUpdater {
 	u := &RepoUpdater{

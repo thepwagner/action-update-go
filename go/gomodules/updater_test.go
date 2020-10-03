@@ -7,11 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/thepwagner/action-update-go/gomodules"
 	"github.com/thepwagner/action-update/updater"
-	"github.com/thepwagner/action-update/updatertest"
 )
 
 // updaterFactory drives updatertest in other files
-func updaterFactory(opts ...gomodules.UpdaterOpt) updatertest.Factory {
+func updaterFactory(opts ...gomodules.UpdaterOpt) updater.Factory {
 	return func(root string) updater.Updater { return gomodules.NewUpdater(root, opts...) }
 }
 

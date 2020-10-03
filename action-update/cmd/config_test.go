@@ -1,4 +1,4 @@
-package cmd
+package cmd_test
 
 import (
 	"fmt"
@@ -7,9 +7,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/thepwagner/action-update/cmd"
 )
 
-func TestEnvironment_LogLevel(t *testing.T) {
+func TestConfig_LogLevel(t *testing.T) {
 	cases := map[string]logrus.Level{
 		"":        logrus.InfoLevel,
 		"invalid": logrus.InfoLevel,
@@ -18,13 +19,13 @@ func TestEnvironment_LogLevel(t *testing.T) {
 
 	for in, lvl := range cases {
 		t.Run(fmt.Sprintf("parse %q", in), func(t *testing.T) {
-			e := Environment{InputLogLevel: in}
+			e := cmd.Config{InputLogLevel: in}
 			assert.Equal(t, lvl, e.LogLevel())
 		})
 	}
 }
 
-func TestEnvironment_Batches(t *testing.T) {
+func TestConfig_Batches(t *testing.T) {
 	cases := []struct {
 		input   string
 		batches map[string][]string
@@ -57,7 +58,7 @@ foz: baz`,
 	}
 
 	for _, tc := range cases {
-		e := Environment{InputBatches: tc.input}
+		e := cmd.Config{InputBatches: tc.input}
 		b, err := e.Batches()
 		require.NoError(t, err)
 		assert.Equal(t, tc.batches, b)
