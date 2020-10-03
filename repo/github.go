@@ -14,7 +14,7 @@ import (
 
 // GitHubRepo wraps GitRepo to create a GitHub PR for the pushed branch.
 type GitHubRepo struct {
-	repo updater.Repo
+	repo *GitRepo
 
 	prContent PullRequestContent
 	github    *github.Client
@@ -69,6 +69,10 @@ func (g *GitHubRepo) Push(ctx context.Context, updates ...updater.Update) error 
 	if err := g.repo.Push(ctx, updates...); err != nil {
 		return err
 	}
+	if g.repo.NoPush {
+		return nil
+	}
+
 	if err := g.createPR(ctx, updates); err != nil {
 		return err
 	}

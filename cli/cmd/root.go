@@ -5,19 +5,33 @@ import (
 	"os"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var cfgFile string
 
-const flagGitHubToken = "GitHubToken"
+const (
+	flagGitHubToken = "GitHubToken"
+	flagLogLevel    = "LogLevel"
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "action-update-go",
 	Short: "Action-update-go",
 	Long:  `Simulates GitHub Actions environment enough to test action-update-go.`,
+	PersistentPreRunE: func(*cobra.Command, []string) error {
+		viper.SetDefault(flagLogLevel, logrus.InfoLevel.String())
+		level, err := logrus.ParseLevel(viper.GetString(flagLogLevel))
+		if err != nil {
+			return err
+		}
+		logrus.SetLevel(level)
+		logrus.WithField("level", level).Debug("parsed log level")
+		return nil
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

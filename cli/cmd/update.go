@@ -17,21 +17,21 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thepwagner/action-update-go/actions"
 	"github.com/thepwagner/action-update-go/cmd"
-	"github.com/thepwagner/action-update-go/common/exec"
 	gitrepo "github.com/thepwagner/action-update-go/repo"
 )
 
-// TODO: wire to cobra
-var (
-	keep       bool
-	branchName string = "master"
+const (
+	flagKeepTmpDir = "Keep"
+	flagBranchName = "Branch"
 )
 
 var updateCmd = &cobra.Command{
-	Use:   "update",
+	Use:   "update <url>",
 	Short: "Perform dependency updates",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logrus.SetLevel(logrus.DebugLevel)
+		viper.SetDefault(flagKeepTmpDir, false)
+		viper.SetDefault(flagBranchName, "master")
+
 		var target string
 		if len(args) > 0 {
 			target = args[0]
@@ -52,7 +52,7 @@ func MockUpdate(ctx context.Context, target string) error {
 	}
 	dirLog := logrus.WithField("temp_dir", dir)
 	dirLog.Debug("created tempdir")
-	if !keep {
+	if !viper.GetBool(flagKeepTmpDir) {
 		defer func() {
 			if err := os.RemoveAll(dir); err != nil {
 				dirLog.WithError(err).Warn("error cleaning temp dir")
@@ -67,6 +67,7 @@ func MockUpdate(ctx context.Context, target string) error {
 		return fmt.Errorf("could not detect environment")
 	}
 	dirLog.Info("cloned to tempdir")
+	env.NoPush = true
 
 	if err := os.Chdir(dir); err != nil {
 		return err
@@ -76,6 +77,36 @@ func MockUpdate(ctx context.Context, target string) error {
 }
 
 func cloneAndEnv(ctx context.Context, target, dir string) (*cmd.Environment, error) {
+	parsed, err := parseTargetURL(target)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := parsed.initRepo(ctx, dir); err != nil {
+		return nil, err
+	}
+
+	ghToken := viper.GetString(flagGitHubToken)
+	gh := gitrepo.NewGitHubClient(ghToken)
+
+	// TODO: find self-references in .github/workflows/*.yaml to guess configuration?
+
+	// Interpret the path to decide how to clone and what event to simulate:
+	if parsed.prNumber > 0 {
+		// Pull request - fetch PR head and simulate `pull_request.reopened` to recreate
+		return parsed.clonePullRequest(ctx, gh, dir)
+	}
+
+	// Fetch default branch and simulate `schedule` to reopen all
+	return parsed.cloneEvent(ctx, dir)
+}
+
+type parsedTarget struct {
+	owner, repo string
+	prNumber    int
+}
+
+func parseTargetURL(target string) (*parsedTarget, error) {
 	targetURL, err := url.Parse(target)
 	if err != nil {
 		return nil, fmt.Errorf("parsing target URL: %w", err)
@@ -83,80 +114,80 @@ func cloneAndEnv(ctx context.Context, target, dir string) (*cmd.Environment, err
 	if targetURL.Host != "github.com" {
 		return nil, fmt.Errorf("unsupported host")
 	}
-
-	if err := viper.WriteConfig(); err != nil {
-		return nil, err
-	}
-	gh := gitrepo.NewGitHubClient(viper.GetString(flagGitHubToken))
-
-	// Identify the repo from the provided URL, initialize remote:
 	pathParts := strings.Split(targetURL.Path, "/")
 	if len(pathParts) < 3 {
 		return nil, fmt.Errorf("could not parse repo from path")
 	}
-	owner := pathParts[1]
-	repo := pathParts[2]
-	if err := exec.CommandExecute(ctx, dir, "git", "init", "."); err != nil {
-		return nil, fmt.Errorf("git init: %w", err)
+
+	t := &parsedTarget{
+		owner: pathParts[1],
+		repo:  pathParts[2],
 	}
-	remoteURL := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
-	if err := exec.CommandExecute(ctx, dir, "git", "remote", "add", gitrepo.RemoteName, remoteURL); err != nil {
-		return nil, fmt.Errorf("git remote add: %w", err)
-	}
-
-	// TODO: find references in .github/workflows/*.yaml to interpret configuration?
-
-	// Interpret the path to decide how to clone and what event to simulate:
-	if len(pathParts) == 3 {
-		// owner+repo - fetch the default branch and simulate a "schedule" event
-		remoteRef := path.Join("refs/remotes/origin", branchName)
-		refSpec := fmt.Sprintf("+:%s", remoteRef)
-		if err := exec.CommandExecute(ctx, dir, "git", "-c", "protocol.version=2", "fetch", "--no-tags",
-			"--prune", "--progress", "--no-recurse-submodules", "--depth=1", gitrepo.RemoteName, refSpec); err != nil {
-			return nil, fmt.Errorf("git fetch: %w", err)
-		}
-		if err := exec.CommandExecute(ctx, dir, "git", "checkout", "--progress", "--force", "-B", branchName, remoteRef); err != nil {
-			return nil, fmt.Errorf("git fetch: %w", err)
-		}
-
-		return &cmd.Environment{
-			GitHubEventName: "schedule",
-		}, nil
-	}
-
 	if len(pathParts) == 5 && pathParts[3] == "pull" {
-		// pull request - fetch the pr HEAD and simulate a "reopened" event
-		prNumber, err := strconv.Atoi(pathParts[4])
+		t.prNumber, err = strconv.Atoi(pathParts[4])
 		if err != nil {
 			return nil, fmt.Errorf("parsing PR number: %w", err)
 		}
+	}
+	return t, nil
+}
 
-		pr, _, err := gh.PullRequests.Get(ctx, owner, repo, prNumber)
-		if err != nil {
-			return nil, fmt.Errorf("getting PR: %w", err)
-		}
+func (p *parsedTarget) initRepo(ctx context.Context, dir string) error {
+	if err := cmd.CommandExecute(ctx, dir, "git", "init", "."); err != nil {
+		return fmt.Errorf("git init: %w", err)
+	}
+	remoteURL := fmt.Sprintf("https://github.com/%s/%s", p.owner, p.repo)
+	if err := cmd.CommandExecute(ctx, dir, "git", "remote", "add", gitrepo.RemoteName, remoteURL); err != nil {
+		return fmt.Errorf("git remote add: %w", err)
+	}
+	return nil
+}
 
-		remoteRef := fmt.Sprintf("refs/remotes/pull/%d/merge", prNumber)
-		refSpec := fmt.Sprintf("+%s:%s", pr.GetMergeCommitSHA(), remoteRef)
-		if err := exec.CommandExecute(ctx, dir, "git", "-c", "protocol.version=2", "fetch", "--no-tags",
-			"--prune", "--progress", "--no-recurse-submodules", "--depth=1", gitrepo.RemoteName, refSpec); err != nil {
-			return nil, fmt.Errorf("git fetch: %w", err)
-		}
-		if err := exec.CommandExecute(ctx, dir, "git", "checkout", "--progress", "--force", remoteRef); err != nil {
-			return nil, fmt.Errorf("git fetch: %w", err)
-		}
-
-		tmpEvt, err := tmpEventFile(&github.PullRequestEvent{
-			Action:      github.String("reopened"),
-			PullRequest: pr,
-		})
-		return &cmd.Environment{
-			GitHubEventName: "pull_request",
-			GitHubEventPath: tmpEvt,
-		}, nil
+func (p *parsedTarget) clonePullRequest(ctx context.Context, gh *github.Client, dir string) (*cmd.Environment, error) {
+	// pull request - fetch the pr HEAD and simulate a "reopened" event
+	pr, _, err := gh.PullRequests.Get(ctx, p.owner, p.repo, p.prNumber)
+	if err != nil {
+		return nil, fmt.Errorf("getting PR: %w", err)
 	}
 
-	return nil, nil
+	remoteRef := fmt.Sprintf("refs/remotes/pull/%d/merge", p.prNumber)
+	refSpec := fmt.Sprintf("+%s:%s", pr.GetMergeCommitSHA(), remoteRef)
+	if err := cmd.CommandExecute(ctx, dir, "git", "-c", "protocol.version=2", "fetch", "--no-tags",
+		"--prune", "--progress", "--no-recurse-submodules", "--depth=1", gitrepo.RemoteName, refSpec); err != nil {
+		return nil, fmt.Errorf("git fetch: %w", err)
+	}
+	if err := cmd.CommandExecute(ctx, dir, "git", "checkout", "--progress", "--force", remoteRef); err != nil {
+		return nil, fmt.Errorf("git fetch: %w", err)
+	}
+
+	tmpEvt, err := tmpEventFile(&github.PullRequestEvent{
+		Action:      github.String("reopened"),
+		PullRequest: pr,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("creating temp event file: %w", err)
+	}
+	return &cmd.Environment{
+		GitHubEventName: "pull_request",
+		GitHubEventPath: tmpEvt,
+	}, nil
+}
+
+func (p *parsedTarget) cloneEvent(ctx context.Context, dir string) (*cmd.Environment, error) {
+	branchName := viper.GetString(flagBranchName)
+	remoteRef := path.Join("refs/remotes/origin", branchName)
+	refSpec := fmt.Sprintf("+:%s", remoteRef)
+	if err := cmd.CommandExecute(ctx, dir, "git", "-c", "protocol.version=2", "fetch", "--no-tags",
+		"--prune", "--progress", "--no-recurse-submodules", "--depth=1", gitrepo.RemoteName, refSpec); err != nil {
+		return nil, fmt.Errorf("git fetch: %w", err)
+	}
+	if err := cmd.CommandExecute(ctx, dir, "git", "checkout", "--progress", "--force", "-B", branchName, remoteRef); err != nil {
+		return nil, fmt.Errorf("git fetch: %w", err)
+	}
+
+	return &cmd.Environment{
+		GitHubEventName: "schedule",
+	}, nil
 }
 
 func tmpEventFile(evt interface{}) (string, error) {
@@ -174,14 +205,4 @@ func tmpEventFile(evt interface{}) (string, error) {
 
 func init() {
 	rootCmd.AddCommand(updateCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// updateCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// updateCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

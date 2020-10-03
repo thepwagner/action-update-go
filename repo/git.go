@@ -3,6 +3,8 @@ package repo
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -10,7 +12,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/sirupsen/logrus"
-	"github.com/thepwagner/action-update-go/common/exec"
+	"github.com/thepwagner/action-update-go/cmd"
 	"github.com/thepwagner/action-update-go/updater"
 )
 
@@ -24,6 +26,7 @@ type GitRepo struct {
 	author        GitIdentity
 	remotes       bool
 	commitMessage commitMessageGen
+	NoPush        bool
 }
 
 var _ updater.Repo = (*GitRepo)(nil)
@@ -174,8 +177,8 @@ func (t *GitRepo) Root() string {
 }
 
 func (t *GitRepo) Fetch(ctx context.Context, branch string) error {
-	refSpec := fmt.Sprintf("+%s:%s", branch)
-	if err := exec.CommandExecute(ctx, t.Root(), "git", "fetch", RemoteName, refSpec); err != nil {
+	refSpec := fmt.Sprintf("+%s:%s", branch, branch)
+	if err := cmd.CommandExecute(ctx, t.Root(), "git", "fetch", RemoteName, refSpec); err != nil {
 		return fmt.Errorf("fetching: %w", err)
 	}
 
@@ -198,8 +201,25 @@ func (t *GitRepo) Push(ctx context.Context, update ...updater.Update) error {
 	if err := t.commit(commitMessage); err != nil {
 		return err
 	}
+
+	if t.NoPush {
+		return t.diff(ctx)
+	}
+
 	if err := t.push(ctx); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (t *GitRepo) diff(ctx context.Context) error {
+	c := exec.CommandContext(ctx, "git", "show", "--color=always", "HEAD")
+	c.Dir = t.Root()
+	c.Env = []string{"GIT_PAGER=cat"}
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	if err := c.Run(); err != nil {
+		return fmt.Errorf("diffing for push: %w", err)
 	}
 	return nil
 }
@@ -253,7 +273,7 @@ func (t *GitRepo) push(ctx context.Context) error {
 
 	// go-git supports Push, but not the [http "https://github.com/"] .gitconfig that actions/checkout uses for auth
 	// we could extract from u.repo.Config().Raw, but who are we trying to impress?
-	err := exec.CommandExecute(ctx, t.Root(), "git", "push", "-f")
+	err := cmd.CommandExecute(ctx, t.Root(), "git", "push", "-f")
 	if err != nil {
 		return fmt.Errorf("pushing: %w", err)
 	}
