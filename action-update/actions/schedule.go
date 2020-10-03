@@ -31,4 +31,3 @@ func (h *handler) UpdateAll(ctx context.Context, _ interface{}) error {
 	// No branches as input, fallback to current branch:
 	return repoUpdater.UpdateAll(ctx, initialBranch)
 }
-
