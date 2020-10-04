@@ -119,7 +119,7 @@ github.com/sirupsen/logrus
 ## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# github.com/thepwagner/action-update v0.0.1 => ../action-update
+# github.com/thepwagner/action-update v0.0.1
 ## explicit
 github.com/thepwagner/action-update/actions
 github.com/thepwagner/action-update/actions/updateaction
@@ -172,4 +172,3 @@ google.golang.org/appengine/urlfetch
 gopkg.in/warnings.v0
 # gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 gopkg.in/yaml.v3
-# github.com/thepwagner/action-update => ../action-update

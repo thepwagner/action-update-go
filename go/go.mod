@@ -8,5 +8,3 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/thepwagner/action-update v0.0.1
 )
-
-replace github.com/thepwagner/action-update => ../action-update

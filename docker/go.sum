@@ -253,6 +253,8 @@ github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/syndtr/gocapability v0.0.0-20170704070218-db04d3cc01c8/go.mod h1:hkRG7XYTFWNJGYcbNJQlaLq0fg1yr4J4t/NcTQtrfww=
 github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2/go.mod h1:hkRG7XYTFWNJGYcbNJQlaLq0fg1yr4J4t/NcTQtrfww=
+github.com/thepwagner/action-update v0.0.1 h1:1DU8swMUGsKpvPD8E6hfiNzdznXeldISjLgLnLTe+zM=
+github.com/thepwagner/action-update v0.0.1/go.mod h1:sbBBJVBFI/s+1owXsHLixR210s0S++sJ1CKrhtz0iDw=
 github.com/tonistiigi/fsutil v0.0.0-20200326231323-c2c7d7b0e144/go.mod h1:0G1sLZ/0ttFf09xvh7GR4AEECnjifHRNJN/sYbLianU=
 github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea/go.mod h1:WPnis/6cRcDZSUvVmezrxJPkiO87ThFYsoUiMwWNDJk=
 github.com/uber/jaeger-client-go v0.0.0-20180103221425-e02c85f9069e/go.mod h1:WVhlPFC8FDjOFMMWRy2pZqQJSXxYSwNYOkTr/Z6d3Kk=
