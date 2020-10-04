@@ -1,6 +1,13 @@
 #!/bin/bash -e
 
-ROOT="$(dirname "$0")/.."
-
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-go test -cover ./...
+source "script/_common"
+
+for MOD in $MODULES; do
+  NAME=$(basename "$(dirname "$MOD")")
+  echo -e "${GREEN}> ${NAME}${NC}"
+  cd "$NAME"
+  go test -cover ./...
+  cd - >/dev/null
+done

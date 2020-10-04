@@ -15,22 +15,28 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/thepwagner/action-update-go/actions"
-	"github.com/thepwagner/action-update-go/cmd"
-	gitrepo "github.com/thepwagner/action-update-go/repo"
+	"github.com/thepwagner/action-update-docker/docker"
+	"github.com/thepwagner/action-update-dockerurl/dockerurl"
+	"github.com/thepwagner/action-update-go/gomodules"
+	"github.com/thepwagner/action-update/actions"
+	"github.com/thepwagner/action-update/actions/update"
+	"github.com/thepwagner/action-update/cmd"
+	gitrepo "github.com/thepwagner/action-update/repo"
+	"github.com/thepwagner/action-update/updater"
 )
 
 const (
-	flagKeepTmpDir = "Keep"
-	flagBranchName = "Branch"
+	cfgKeep       = "Keep"
+	cfgBranchName = "Branch"
 )
 
 var updateCmd = &cobra.Command{
-	Use:   "update <url>",
-	Short: "Perform dependency updates",
+	Use:          "update <url>",
+	Short:        "Perform dependency updates",
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		viper.SetDefault(flagKeepTmpDir, false)
-		viper.SetDefault(flagBranchName, "master")
+		viper.SetDefault(cfgKeep, false)
+		viper.SetDefault(cfgBranchName, "master")
 
 		var target string
 		if len(args) > 0 {
@@ -43,7 +49,10 @@ var updateCmd = &cobra.Command{
 }
 
 func MockUpdate(ctx context.Context, target string) error {
-	logrus.WithField("target", target).Info("performing mock update")
+	logrus.WithFields(logrus.Fields{
+		"target":  target,
+		"updater": updaterType,
+	}).Info("performing mock update")
 
 	// Setup a tempdir for the clone:
 	dir, err := ioutil.TempDir("", "action-update-go-*")
@@ -52,7 +61,7 @@ func MockUpdate(ctx context.Context, target string) error {
 	}
 	dirLog := logrus.WithField("temp_dir", dir)
 	dirLog.Debug("created tempdir")
-	if !viper.GetBool(flagKeepTmpDir) {
+	if !viper.GetBool(cfgKeep) {
 		defer func() {
 			if err := os.RemoveAll(dir); err != nil {
 				dirLog.WithError(err).Warn("error cleaning temp dir")
@@ -60,23 +69,36 @@ func MockUpdate(ctx context.Context, target string) error {
 		}()
 	}
 
-	env, err := cloneAndEnv(ctx, target, dir)
+	cfg, err := cloneAndConfig(ctx, target, dir)
 	if err != nil {
 		return err
-	} else if env == nil {
+	} else if cfg == nil {
 		return fmt.Errorf("could not detect environment")
 	}
 	dirLog.Info("cloned to tempdir")
-	env.NoPush = true
+	cfg.NoPush = true
 
 	if err := os.Chdir(dir); err != nil {
 		return err
 	}
 
-	return cmd.HandleEvent(ctx, env, actions.Handlers)
+	var updaterFactory updater.Factory
+	switch updaterType {
+	case "docker":
+		updaterFactory = func(root string) updater.Updater { return docker.NewUpdater(root) }
+	case "dockerurl":
+		updaterFactory = func(root string) updater.Updater { return dockerurl.NewUpdater(root) }
+	case "go":
+		updaterFactory = func(root string) updater.Updater { return gomodules.NewUpdater(root) }
+	default:
+		return fmt.Errorf("unknown updater: %w", err)
+	}
+
+	handlers := update.NewHandlers(cfg, updaterFactory)
+	return actions.HandleEvent(ctx, &cfg.Config, handlers)
 }
 
-func cloneAndEnv(ctx context.Context, target, dir string) (*cmd.Environment, error) {
+func cloneAndConfig(ctx context.Context, target, dir string) (*update.Config, error) {
 	parsed, err := parseTargetURL(target)
 	if err != nil {
 		return nil, err
@@ -86,7 +108,7 @@ func cloneAndEnv(ctx context.Context, target, dir string) (*cmd.Environment, err
 		return nil, err
 	}
 
-	ghToken := viper.GetString(flagGitHubToken)
+	ghToken := viper.GetString(cfgGitHubToken)
 	gh := gitrepo.NewGitHubClient(ghToken)
 
 	// TODO: find self-references in .github/workflows/*.yaml to guess configuration?
@@ -143,7 +165,7 @@ func (p *parsedTarget) initRepo(ctx context.Context, dir string) error {
 	return nil
 }
 
-func (p *parsedTarget) clonePullRequest(ctx context.Context, gh *github.Client, dir string) (*cmd.Environment, error) {
+func (p *parsedTarget) clonePullRequest(ctx context.Context, gh *github.Client, dir string) (*update.Config, error) {
 	// pull request - fetch the pr HEAD and simulate a "reopened" event
 	pr, _, err := gh.PullRequests.Get(ctx, p.owner, p.repo, p.prNumber)
 	if err != nil {
@@ -167,14 +189,16 @@ func (p *parsedTarget) clonePullRequest(ctx context.Context, gh *github.Client, 
 	if err != nil {
 		return nil, fmt.Errorf("creating temp event file: %w", err)
 	}
-	return &cmd.Environment{
-		GitHubEventName: "pull_request",
-		GitHubEventPath: tmpEvt,
+	return &update.Config{
+		Config: actions.Config{
+			GitHubEventName: "pull_request",
+			GitHubEventPath: tmpEvt,
+		},
 	}, nil
 }
 
-func (p *parsedTarget) cloneEvent(ctx context.Context, dir string) (*cmd.Environment, error) {
-	branchName := viper.GetString(flagBranchName)
+func (p *parsedTarget) cloneEvent(ctx context.Context, dir string) (*update.Config, error) {
+	branchName := viper.GetString(cfgBranchName)
 	remoteRef := path.Join("refs/remotes/origin", branchName)
 	refSpec := fmt.Sprintf("+:%s", remoteRef)
 	if err := cmd.CommandExecute(ctx, dir, "git", "-c", "protocol.version=2", "fetch", "--no-tags",
@@ -185,8 +209,10 @@ func (p *parsedTarget) cloneEvent(ctx context.Context, dir string) (*cmd.Environ
 		return nil, fmt.Errorf("git fetch: %w", err)
 	}
 
-	return &cmd.Environment{
-		GitHubEventName: "schedule",
+	return &update.Config{
+		Config: actions.Config{
+			GitHubEventName: "schedule",
+		},
 	}, nil
 }
 

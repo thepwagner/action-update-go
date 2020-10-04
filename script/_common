@@ -1,0 +1,4 @@
+export GREEN='\033[0;32m'
+export NC='\033[0m'
+
+export MODULES=$(find . -maxdepth 2 -name "go.mod" | sort)

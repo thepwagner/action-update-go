@@ -1,7 +1,12 @@
 package main
 
-import "github.com/thepwagner/action-update-go/cli/cmd"
+import (
+	"os"
+
+	"github.com/thepwagner/action-update-cli/cmd"
+)
 
 func main() {
+	_ = os.Setenv("GOPRIVATE", "*")
 	cmd.Execute()
 }
