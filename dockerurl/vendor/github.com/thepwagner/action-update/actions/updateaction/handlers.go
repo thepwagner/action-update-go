@@ -46,6 +46,10 @@ func (h *handler) repo() (updater.Repo, error) {
 	return gitrepo.NewGitHubRepo(gitRepo, h.cfg.InputSigningKey, h.cfg.GitHubRepository, h.cfg.GitHubToken)
 }
 
-func (h *handler) repoUpdater(repo updater.Repo) *updater.RepoUpdater {
-	return updater.NewRepoUpdater(repo, h.updaterFactory.NewUpdater(repo.Root()))
+func (h *handler) repoUpdater(repo updater.Repo) (*updater.RepoUpdater, error) {
+	batches, err := h.cfg.Batches()
+	if err != nil {
+		return nil, err
+	}
+	return updater.NewRepoUpdater(repo, h.updaterFactory.NewUpdater(repo.Root()), updater.WithBatches(batches)), nil
 }

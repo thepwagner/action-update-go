@@ -13,7 +13,10 @@ func (h *handler) UpdateAll(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	repoUpdater := h.repoUpdater(repo)
+	repoUpdater, err := h.repoUpdater(repo)
+	if err != nil {
+		return err
+	}
 
 	// Capture initial branch, and revert when done:
 	initialBranch := repo.Branch()

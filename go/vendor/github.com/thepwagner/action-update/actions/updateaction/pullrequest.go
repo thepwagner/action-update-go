@@ -47,7 +47,10 @@ func (h *handler) prReopened(ctx context.Context, evt *github.PullRequestEvent) 
 	if err != nil {
 		return err
 	}
-	repoUpdater := h.repoUpdater(r)
+	repoUpdater, err := h.repoUpdater(r)
+	if err != nil {
+		return err
+	}
 
 	// Since actions/checkout will default to only the PR head ref, fetch the base ref before recreating:
 	if err := r.Fetch(ctx, base); err != nil {
