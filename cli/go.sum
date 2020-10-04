@@ -392,6 +392,10 @@ github.com/syndtr/gocapability v0.0.0-20170704070218-db04d3cc01c8/go.mod h1:hkRG
 github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2/go.mod h1:hkRG7XYTFWNJGYcbNJQlaLq0fg1yr4J4t/NcTQtrfww=
 github.com/thepwagner/action-update v0.0.1 h1:1DU8swMUGsKpvPD8E6hfiNzdznXeldISjLgLnLTe+zM=
 github.com/thepwagner/action-update v0.0.1/go.mod h1:sbBBJVBFI/s+1owXsHLixR210s0S++sJ1CKrhtz0iDw=
+github.com/thepwagner/action-update-docker v0.0.1 h1:Z2ot7Qghw41a3AX1im8yzARUeUvSeeJ5+vNj43E5500=
+github.com/thepwagner/action-update-docker v0.0.1/go.mod h1:PuGKdOlrH52ORxT9MyS7bGV4zlwReL3vo/73137kn+g=
+github.com/thepwagner/action-update-dockerurl v0.0.1 h1:yU4WZrnSXeR82I2vwdqnEvJ8hhJdYRJlD1idyR7GQME=
+github.com/thepwagner/action-update-dockerurl v0.0.1/go.mod h1:INAwKXrEPPISjhnHavn0k9nLu9PyCe1jAeM9GDKEmWM=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tonistiigi/fsutil v0.0.0-20200326231323-c2c7d7b0e144/go.mod h1:0G1sLZ/0ttFf09xvh7GR4AEECnjifHRNJN/sYbLianU=
 github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea/go.mod h1:WPnis/6cRcDZSUvVmezrxJPkiO87ThFYsoUiMwWNDJk=
