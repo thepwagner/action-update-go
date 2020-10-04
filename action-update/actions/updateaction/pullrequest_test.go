@@ -34,6 +34,6 @@ func TestPullRequest_Reopened_InvalidSignature(t *testing.T) {
 }
 
 func prHandler(evt *github.PullRequestEvent) error {
-	handlers := updateaction.NewHandlers(&updateaction.Environment{}, nil)
+	handlers := updateaction.NewHandlers(&testEnvironment{})
 	return handlers.PullRequest(context.Background(), evt)
 }

@@ -5,6 +5,12 @@ import (
 	"github.com/thepwagner/action-update/updater"
 )
 
+type testFactory struct{}
+
+func (u *testFactory) NewUpdater(root string) updater.Updater {
+	return docker.NewUpdater(root)
+}
+
 func updaterFactory() updater.Factory {
-	return func(root string) updater.Updater { return docker.NewUpdater(root) }
+	return &testFactory{}
 }

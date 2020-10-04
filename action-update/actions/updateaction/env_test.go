@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thepwagner/action-update/actions/updateaction"
+	"github.com/thepwagner/action-update/updater"
 )
 
 func TestEnvironment_Batches(t *testing.T) {
@@ -47,3 +48,9 @@ foz: baz`,
 		assert.Equal(t, tc.batches, b)
 	}
 }
+
+type testEnvironment struct {
+	updateaction.Environment
+}
+
+func (t *testEnvironment) NewUpdater(root string) updater.Updater { return nil }

@@ -52,3 +52,10 @@ func (e *Environment) Batches() (map[string][]string, error) {
 	}
 	return m, nil
 }
+
+// UpdateEnvironment smuggles *Environment out of structs that embed one.
+type UpdateEnvironment interface{ env() *Environment }
+
+var _ UpdateEnvironment = (*Environment)(nil)
+
+func (e *Environment) env() *Environment { return e }

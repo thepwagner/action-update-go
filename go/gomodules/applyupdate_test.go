@@ -20,7 +20,7 @@ var pkgErrors081 = updater.Update{
 }
 
 func TestUpdater_ApplyUpdate_Simple(t *testing.T) {
-	tempDir := updatertest.ApplyUpdateToFixture(t, "simple", updaterFactory(), pkgErrors081)
+	tempDir := updatertest.ApplyUpdateToFixture(t, "simple", &testFactory{}, pkgErrors081)
 	uf := readModFiles(t, tempDir)
 
 	for _, s := range uf.GoModFiles() {

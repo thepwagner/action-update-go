@@ -52,9 +52,9 @@ func (e *Environment) LogLevel() logrus.Level {
 	return lvl
 }
 
-// actionsEnv smuggles *Environment out of structs that embed one.
-type actionsEnv interface{ cfg() *Environment }
+// ActionEnvironment smuggles *Environment out of structs that embed one.
+type ActionEnvironment interface{ env() *Environment }
 
-var _ actionsEnv = (*Environment)(nil)
+var _ ActionEnvironment = (*Environment)(nil)
 
-func (e *Environment) cfg() *Environment { return e }
+func (e *Environment) env() *Environment { return e }

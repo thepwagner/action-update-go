@@ -24,7 +24,7 @@ func DependenciesFixtures(t *testing.T, factory updater.Factory, cases map[strin
 	for fixture, expected := range cases {
 		t.Run(fixture, func(t *testing.T) {
 			tempDir := TempDirFromFixture(t, fixture)
-			u := factory(tempDir)
+			u := factory.NewUpdater(tempDir)
 			deps, err := u.Dependencies(context.Background())
 			require.NoError(t, err)
 			assert.Equal(t, expected, deps)
@@ -34,7 +34,7 @@ func DependenciesFixtures(t *testing.T, factory updater.Factory, cases map[strin
 
 func CheckInFixture(t *testing.T, fixture string, factory updater.Factory, dep updater.Dependency) *updater.Update {
 	tempDir := TempDirFromFixture(t, fixture)
-	u := factory(tempDir)
+	u := factory.NewUpdater(tempDir)
 	update, err := u.Check(context.Background(), dep)
 	require.NoError(t, err)
 	return update
@@ -47,10 +47,10 @@ func ApplyUpdateToFixture(t *testing.T, fixture string, factory updater.Factory,
 	var u updater.Updater
 	if dir != "" {
 		tempDir = TempDirFromFixture(t, dir)
-		u = factory(filepath.Join(tempDir, f))
+		u = factory.NewUpdater(filepath.Join(tempDir, f))
 	} else {
 		tempDir = TempDirFromFixture(t, f)
-		u = factory(tempDir)
+		u = factory.NewUpdater(tempDir)
 	}
 
 	err := u.ApplyUpdate(context.Background(), up)

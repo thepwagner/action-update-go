@@ -24,5 +24,13 @@ var (
 )
 
 func updaterFactory(opts ...dockerurl.UpdaterOpt) updater.Factory {
-	return func(root string) updater.Updater { return dockerurl.NewUpdater(root, opts...) }
+	return &testFactory{opts: opts}
+}
+
+type testFactory struct {
+	opts []dockerurl.UpdaterOpt
+}
+
+func (u *testFactory) NewUpdater(root string) updater.Updater {
+	return dockerurl.NewUpdater(root, u.opts...)
 }

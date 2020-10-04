@@ -40,7 +40,7 @@ func (h *Handlers) Handle(ctx context.Context, env *Environment) error {
 
 // ParseAndHandle hydrates an `env:""` annotated struct, then Handle()s
 func (h *Handlers) ParseAndHandle(ctx context.Context, env interface{}) error {
-	aEnv, ok := env.(actionsEnv)
+	aEnv, ok := env.(ActionEnvironment)
 	if !ok {
 		return fmt.Errorf("env should embed actions.Environment")
 	}
@@ -48,7 +48,7 @@ func (h *Handlers) ParseAndHandle(ctx context.Context, env interface{}) error {
 	if err := parser.Parse(env); err != nil {
 		return fmt.Errorf("parsing environment: %w", err)
 	}
-	return h.Handle(ctx, aEnv.cfg())
+	return h.Handle(ctx, aEnv.env())
 }
 
 func (h *Handlers) handler(event string) func(context.Context, interface{}) error {
