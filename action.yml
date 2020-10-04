@@ -38,7 +38,7 @@ runs:
       run: which go || echo "Go required, please use actions/setup-go before me"
       shell: bash
     - name: Compile action-update-go
-      run: cd "${{github.action_path}}/go" && go build -o "${{github.action_path}}/action-update-go" .
+      run: cd "${{github.action_path}}" && go build -o "${{github.action_path}}/action-update-go" .
       shell: bash
     - name: Run action-update-go
       run: ${{github.action_path}}/action-update-go
