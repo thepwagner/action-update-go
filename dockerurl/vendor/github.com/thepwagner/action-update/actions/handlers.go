@@ -48,7 +48,10 @@ func (h *Handlers) ParseAndHandle(ctx context.Context, env interface{}) error {
 	if err := parser.Parse(env); err != nil {
 		return fmt.Errorf("parsing environment: %w", err)
 	}
-	return h.Handle(ctx, aEnv.env())
+
+	actionEnv := aEnv.env()
+	logrus.SetLevel(actionEnv.LogLevel())
+	return h.Handle(ctx, actionEnv)
 }
 
 func (h *Handlers) handler(event string) func(context.Context, interface{}) error {
