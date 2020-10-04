@@ -1,8 +1,6 @@
 #!/bin/bash -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT"
-source "script/_common"
 
 # build image
 cd "${ROOT}/script/tools/golangci-lint"
@@ -10,17 +8,7 @@ IMAGE_NAME=action-update-go/lint
 docker build -t "$IMAGE_NAME" .
 cd "$ROOT"
 
-# lint each module:
-for MOD in $MODULES; do
-  NAME=$(basename "$(dirname "$MOD")")
-  echo -e "${GREEN}> ${NAME}${NC}"
-  cd "$NAME"
-  docker run --rm \
-    -v "${ROOT}:/src:ro" \
-    -w "/src/${NAME}" \
-    "$IMAGE_NAME"
-  cd - >/dev/null
-done
-
-
-
+docker run --rm \
+  -v "${ROOT}:/src:ro" \
+  -w "/src/${NAME}" \
+  "$IMAGE_NAME"
