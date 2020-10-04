@@ -13,7 +13,6 @@ import (
 
 type Config struct {
 	update.Config
-	Tidy bool `env:"INPUT_TIDY" envDefault:"true"`
 }
 
 func (c *Config) factory(root string) updater.Updater {
