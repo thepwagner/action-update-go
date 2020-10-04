@@ -38,10 +38,10 @@ runs:
       run: which go || echo "Go required, please use actions/setup-go before me"
       shell: bash
     - name: Compile action-update-dockerurl
-      run: cd "${{github.action_path}}/dockerurl" && go build -o ./action-update-dockerurl .
+      run: ls -l ${{github.action_path}} && cd "${{github.action_path}}/dockerurl" && go build -o "${{github.action_path}}/action-update-dockerurl" .
       shell: bash
     - name: Run action-update-dockerurl
-      run: pwd && "${{github.action_path}}/action-update-dockerurl"
+      run: ls -l ${{github.action_path}} && ${{github.action_path}}/action-update-dockerurl
       shell: bash
       env:
         INPUT_BRANCHES: ${{ inputs.branches }}
