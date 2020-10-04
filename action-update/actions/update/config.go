@@ -51,7 +51,3 @@ func (e *Config) Batches() (map[string][]string, error) {
 	}
 	return m, nil
 }
-
-type cfg interface{ cfg() *Config }
-
-func (e *Config) cfg() *Config { return e }
