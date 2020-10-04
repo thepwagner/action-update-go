@@ -1,15 +1,15 @@
-package actions
+package update
 
 import (
 	"github.com/go-git/go-git/v5"
-	"github.com/thepwagner/action-update/cmd"
+	"github.com/thepwagner/action-update/actions"
 	gitrepo "github.com/thepwagner/action-update/repo"
 	"github.com/thepwagner/action-update/updater"
 )
 
-func NewHandlers(cfg *cmd.Config, f updater.Factory) cmd.HandlersByEventName {
+func NewHandlers(cfg *Config, f updater.Factory) actions.HandlersByEventName {
 	h := &handler{cfg: cfg, updaterFactory: f}
-	return cmd.HandlersByEventName{
+	return actions.HandlersByEventName{
 		"issue_comment":     IssueComment,
 		"pull_request":      h.PullRequest,
 		"schedule":          h.UpdateAll,
@@ -19,7 +19,7 @@ func NewHandlers(cfg *cmd.Config, f updater.Factory) cmd.HandlersByEventName {
 
 type handler struct {
 	updaterFactory updater.Factory
-	cfg            *cmd.Config
+	cfg            *Config
 }
 
 func (h *handler) repo() (updater.Repo, error) {

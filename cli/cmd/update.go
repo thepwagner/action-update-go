@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thepwagner/action-update-go/gomodules"
 	"github.com/thepwagner/action-update/actions"
+	"github.com/thepwagner/action-update/actions/update"
 	"github.com/thepwagner/action-update/cmd"
 	gitrepo "github.com/thepwagner/action-update/repo"
 	"github.com/thepwagner/action-update/updater"
@@ -78,12 +79,12 @@ func MockUpdate(ctx context.Context, target string) error {
 
 	// TODO: updater flag
 	updaterFactory := func(root string) updater.Updater { return gomodules.NewUpdater(root) }
-	handlers := actions.NewHandlers(cfg, updaterFactory)
+	handlers := update.NewHandlers(cfg, updaterFactory)
 
-	return cmd.HandleEvent(ctx, cfg, handlers)
+	return actions.HandleEvent(ctx, &cfg.Config, handlers)
 }
 
-func cloneAndConfig(ctx context.Context, target, dir string) (*cmd.Config, error) {
+func cloneAndConfig(ctx context.Context, target, dir string) (*update.Config, error) {
 	parsed, err := parseTargetURL(target)
 	if err != nil {
 		return nil, err
@@ -150,7 +151,7 @@ func (p *parsedTarget) initRepo(ctx context.Context, dir string) error {
 	return nil
 }
 
-func (p *parsedTarget) clonePullRequest(ctx context.Context, gh *github.Client, dir string) (*cmd.Config, error) {
+func (p *parsedTarget) clonePullRequest(ctx context.Context, gh *github.Client, dir string) (*update.Config, error) {
 	// pull request - fetch the pr HEAD and simulate a "reopened" event
 	pr, _, err := gh.PullRequests.Get(ctx, p.owner, p.repo, p.prNumber)
 	if err != nil {
@@ -174,13 +175,15 @@ func (p *parsedTarget) clonePullRequest(ctx context.Context, gh *github.Client, 
 	if err != nil {
 		return nil, fmt.Errorf("creating temp event file: %w", err)
 	}
-	return &cmd.Config{
-		GitHubEventName: "pull_request",
-		GitHubEventPath: tmpEvt,
+	return &update.Config{
+		Config: actions.Config{
+			GitHubEventName: "pull_request",
+			GitHubEventPath: tmpEvt,
+		},
 	}, nil
 }
 
-func (p *parsedTarget) cloneEvent(ctx context.Context, dir string) (*cmd.Config, error) {
+func (p *parsedTarget) cloneEvent(ctx context.Context, dir string) (*update.Config, error) {
 	branchName := viper.GetString(flagBranchName)
 	remoteRef := path.Join("refs/remotes/origin", branchName)
 	refSpec := fmt.Sprintf("+:%s", remoteRef)
@@ -192,8 +195,10 @@ func (p *parsedTarget) cloneEvent(ctx context.Context, dir string) (*cmd.Config,
 		return nil, fmt.Errorf("git fetch: %w", err)
 	}
 
-	return &cmd.Config{
-		GitHubEventName: "schedule",
+	return &update.Config{
+		Config: actions.Config{
+			GitHubEventName: "schedule",
+		},
 	}, nil
 }
 

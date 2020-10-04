@@ -7,12 +7,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update-go/gomodules"
 	"github.com/thepwagner/action-update/actions"
-	"github.com/thepwagner/action-update/cmd"
+	"github.com/thepwagner/action-update/actions/update"
 	"github.com/thepwagner/action-update/updater"
 )
 
 type Config struct {
-	cmd.Config
+	update.Config
 	Tidy bool `env:"INPUT_TIDY" envDefault:"true"`
 }
 
@@ -27,9 +27,9 @@ func main() {
 	_ = os.Setenv("GOPRIVATE", "*")
 
 	var cfg Config
-	handlers := actions.NewHandlers(&cfg.Config, cfg.factory)
+	handlers := update.NewHandlers(&cfg.Config, cfg.factory)
 	ctx := context.Background()
-	if err := cmd.Execute(ctx, &cfg, handlers); err != nil {
+	if err := actions.Execute(ctx, &cfg, handlers); err != nil {
 		logrus.WithError(err).Fatal("failed")
 	}
 }

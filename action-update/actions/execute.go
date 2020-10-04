@@ -1,4 +1,4 @@
-package cmd
+package actions
 
 import (
 	"context"
@@ -8,20 +8,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func Execute(ctx context.Context, config interface{}, handlers HandlersByEventName) error {
-	// Parse configuration:
-	c, ok := config.(cfg)
-	if !ok {
-		return fmt.Errorf("config must embed Config")
-	}
+// Execute loads `config` from environment, then selects the
+func Execute(ctx context.Context, config actionsConfig, handlers HandlersByEventName) error {
 	if err := env.Parse(config); err != nil {
 		return fmt.Errorf("parsing environment: %w", err)
 	}
-	cfg := c.cfg()
-
+	cfg := config.cfg()
 	return HandleEvent(ctx, cfg, handlers)
 }
 
+// HandleEvent invokes a handler by name.
 func HandleEvent(ctx context.Context, cfg *Config, handlers HandlersByEventName) error {
 	// Is there a handler for this event?
 	log := logrus.WithField("event_name", cfg.GitHubEventName)

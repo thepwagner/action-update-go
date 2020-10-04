@@ -1,4 +1,4 @@
-package actions
+package update
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/go-github/v32/github"
 	"github.com/stretchr/testify/assert"
-	"github.com/thepwagner/action-update/cmd"
 )
 
 func TestPullRequest_UnhandledAction(t *testing.T) {
@@ -35,6 +34,6 @@ func TestPullRequest_Reopened_InvalidSignature(t *testing.T) {
 
 func prHandler(evt *github.PullRequestEvent) error {
 	ctx := context.Background()
-	handler := NewHandlers(&cmd.Config{}, nil)["pull_request"]
+	handler := NewHandlers(&Config{}, nil)["pull_request"]
 	return handler(ctx, evt)
 }

@@ -1,4 +1,4 @@
-package cmd_test
+package actions_test
 
 import (
 	"context"
@@ -10,7 +10,8 @@ import (
 	"github.com/google/go-github/v32/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update/cmd"
+	"github.com/thepwagner/action-update/actions"
+	"github.com/thepwagner/action-update/actions/update"
 )
 
 func TestExecute(t *testing.T) {
@@ -21,7 +22,7 @@ func TestExecute(t *testing.T) {
 	_ = os.Setenv("GITHUB_EVENT_PATH", eventPath)
 
 	ctx := context.Background()
-	err = cmd.Execute(ctx, &cmd.Config{}, cmd.HandlersByEventName{
+	err = actions.Execute(ctx, &update.Config{}, actions.HandlersByEventName{
 		"issue_comment": func(_ context.Context, evt interface{}) error {
 			assert.IsType(t, &github.IssueCommentEvent{}, evt)
 			return nil

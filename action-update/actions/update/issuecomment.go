@@ -1,4 +1,4 @@
-package actions
+package update
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
-	"github.com/thepwagner/action-update/cmd"
+	"github.com/thepwagner/action-update/actions"
 )
 
 // IssueComment is for debugging.
@@ -20,4 +20,4 @@ func IssueComment(_ context.Context, evt interface{}) error {
 	return nil
 }
 
-var _ cmd.Handler = IssueComment
+var _ actions.Handler = IssueComment
