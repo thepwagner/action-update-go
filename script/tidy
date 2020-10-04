@@ -11,5 +11,7 @@ for MOD in $MODULES; do
   go mod tidy
   # 'go' vendors, for faster startup as an action
   [ "$NAME" == "go" ] && go mod vendor
+  # 'dockerurl' vendors, because composite actions have to :(
+  [ "$NAME" == "dockerurl" ] && go mod vendor
   cd - >/dev/null
 done
