@@ -1,4 +1,4 @@
-package update
+package updateaction
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 )
 
 // UpdateAll tries to update all dependencies
-func (h *handler) UpdateAll(ctx context.Context, _ interface{}) error {
+func (h *handler) UpdateAll(ctx context.Context) error {
 	// Open git repo, prepare updater:
 	repo, err := h.repo()
 	if err != nil {

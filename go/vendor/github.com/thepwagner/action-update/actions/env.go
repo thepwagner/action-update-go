@@ -8,9 +8,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Config includes Actions environment
+// Environment includes Actions environment
 // https://docs.github.com/en/free-pro-team@latest/actions/reference/environment-variables
-type Config struct {
+type Environment struct {
 	GitHubEventName  string `env:"GITHUB_EVENT_NAME"`
 	GitHubEventPath  string `env:"GITHUB_EVENT_PATH"`
 	GitHubRepository string `env:"GITHUB_REPOSITORY"`
@@ -19,7 +19,7 @@ type Config struct {
 }
 
 // ParseEvent returns deserialized GitHub webhook payload, or an error.
-func (e *Config) ParseEvent() (interface{}, error) {
+func (e *Environment) ParseEvent() (interface{}, error) {
 	switch e.GitHubEventName {
 	case "schedule", "workflow_dispatch":
 		return nil, nil
@@ -39,7 +39,7 @@ func (e *Config) ParseEvent() (interface{}, error) {
 }
 
 // LogLevel returns the logrus level
-func (e *Config) LogLevel() logrus.Level {
+func (e *Environment) LogLevel() logrus.Level {
 	if e.InputLogLevel == "" {
 		return logrus.InfoLevel
 	}
@@ -52,8 +52,9 @@ func (e *Config) LogLevel() logrus.Level {
 	return lvl
 }
 
-type actionsConfig interface{ cfg() *Config }
+// actionsEnv smuggles *Environment out of structs that embed one.
+type actionsEnv interface{ cfg() *Environment }
 
-var _ actionsConfig = (*Config)(nil)
+var _ actionsEnv = (*Environment)(nil)
 
-func (e *Config) cfg() *Config { return e }
+func (e *Environment) cfg() *Environment { return e }
