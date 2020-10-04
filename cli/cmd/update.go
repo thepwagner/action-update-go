@@ -22,7 +22,6 @@ import (
 	"github.com/thepwagner/action-update/actions/updateaction"
 	"github.com/thepwagner/action-update/cmd"
 	gitrepo "github.com/thepwagner/action-update/repo"
-	"github.com/thepwagner/action-update/updater"
 )
 
 const (
@@ -82,19 +81,19 @@ func MockUpdate(ctx context.Context, target string) error {
 		return err
 	}
 
-	var updaterFactory updater.Factory
+	var env updateaction.HandlerParams
 	switch updaterType {
 	case "docker":
-		updaterFactory = func(root string) updater.Updater { return docker.NewUpdater(root) }
+		env = &docker.Environment{}
 	case "dockerurl":
-		updaterFactory = func(root string) updater.Updater { return dockerurl.NewUpdater(root) }
+		env = &dockerurl.Environment{}
 	case "go":
-		updaterFactory = func(root string) updater.Updater { return gomodules.NewUpdater(root) }
+		env = &gomodules.Environment{}
 	default:
 		return fmt.Errorf("unknown updater: %w", err)
 	}
 
-	handlers := updateaction.NewHandlers(cfg, updaterFactory)
+	handlers := updateaction.NewHandlers(env)
 	return handlers.Handle(ctx, &cfg.Environment)
 }
 

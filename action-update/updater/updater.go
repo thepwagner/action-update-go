@@ -40,7 +40,9 @@ type Updater interface {
 }
 
 // Factory provides UpdaterS for testing, masking any arguments other than the repo root.
-type Factory func(root string) Updater
+type Factory interface {
+	NewUpdater(root string) Updater
+}
 
 // NewRepoUpdater creates RepoUpdater.
 func NewRepoUpdater(repo Repo, updater Updater, opts ...RepoUpdaterOpt) *RepoUpdater {

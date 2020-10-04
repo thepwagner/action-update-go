@@ -2,7 +2,7 @@ package gomodules
 
 import (
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
-	updater2 "github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updater"
 )
 
 type Updater struct {
@@ -14,7 +14,7 @@ type Updater struct {
 	Tidy bool
 }
 
-var _ updater2.Updater = (*Updater)(nil)
+var _ updater.Updater = (*Updater)(nil)
 
 func NewUpdater(root string, opts ...UpdaterOpt) *Updater {
 	u := &Updater{
@@ -49,6 +49,6 @@ const (
 	VendorModulesFn = "vendor/modules.txt"
 )
 
-func MajorPkg(u updater2.Update) bool {
+func MajorPkg(u updater.Update) bool {
 	return semver.Major(u.Previous) != semver.Major(u.Next) && pathMajorVersionRE.MatchString(u.Path)
 }

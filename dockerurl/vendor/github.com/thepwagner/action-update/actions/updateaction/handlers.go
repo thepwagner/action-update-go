@@ -7,9 +7,14 @@ import (
 	"github.com/thepwagner/action-update/updater"
 )
 
+type HandlerParams interface {
+	UpdateEnvironment
+	updater.Factory
+}
+
 // NewHandlers returns Actions handlers for processing updates
-func NewHandlers(cfg *Environment, f updater.Factory) *actions.Handlers {
-	h := &handler{cfg: cfg, updaterFactory: f}
+func NewHandlers(p HandlerParams) *actions.Handlers {
+	h := &handler{cfg: p.env(), updaterFactory: p}
 	return &actions.Handlers{
 		IssueComment:     IssueComment,
 		PullRequest:      h.PullRequest,
@@ -41,6 +46,10 @@ func (h *handler) repo() (updater.Repo, error) {
 	return gitrepo.NewGitHubRepo(gitRepo, h.cfg.InputSigningKey, h.cfg.GitHubRepository, h.cfg.GitHubToken)
 }
 
-func (h *handler) repoUpdater(repo updater.Repo) *updater.RepoUpdater {
-	return updater.NewRepoUpdater(repo, h.updaterFactory(repo.Root()))
+func (h *handler) repoUpdater(repo updater.Repo) (*updater.RepoUpdater, error) {
+	batches, err := h.cfg.Batches()
+	if err != nil {
+		return nil, err
+	}
+	return updater.NewRepoUpdater(repo, h.updaterFactory.NewUpdater(repo.Root()), updater.WithBatches(batches)), nil
 }

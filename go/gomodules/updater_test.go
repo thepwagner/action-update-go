@@ -9,9 +9,16 @@ import (
 	"github.com/thepwagner/action-update/updater"
 )
 
-// updaterFactory drives updatertest in other files
+type testFactory struct {
+	opts []gomodules.UpdaterOpt
+}
+
+func (u *testFactory) NewUpdater(root string) updater.Updater {
+	return gomodules.NewUpdater(root, u.opts...)
+}
+
 func updaterFactory(opts ...gomodules.UpdaterOpt) updater.Factory {
-	return func(root string) updater.Updater { return gomodules.NewUpdater(root, opts...) }
+	return &testFactory{opts: opts}
 }
 
 func TestMajorPkg(t *testing.T) {
