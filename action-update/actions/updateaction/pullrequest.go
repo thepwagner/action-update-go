@@ -1,4 +1,4 @@
-package update
+package updateaction
 
 import (
 	"context"
@@ -10,20 +10,15 @@ import (
 	"github.com/thepwagner/action-update/updater"
 )
 
-func (h *handler) PullRequest(ctx context.Context, evt interface{}) error {
-	pr, ok := evt.(*github.PullRequestEvent)
-	if !ok {
-		return fmt.Errorf("invalid event type: %T", evt)
-	}
-
-	switch pr.GetAction() {
+func (h *handler) PullRequest(ctx context.Context, evt *github.PullRequestEvent) error {
+	switch evt.GetAction() {
 	case "reopened":
-		return h.prReopened(ctx, pr)
+		return h.prReopened(ctx, evt)
 	case "assigned", "unassigned", "review_requested", "review_request_removed", "labeled", "unlabeled",
 		"opened", "edited", "closed", "ready_for_review", "locked", "unlocked":
 		// pass
 	default:
-		logrus.WithField("action", pr.GetAction()).Warn("unexpected action")
+		logrus.WithField("action", evt.GetAction()).Warn("unexpected action")
 	}
 	return nil
 }

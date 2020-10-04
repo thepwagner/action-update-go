@@ -1,14 +1,14 @@
-package update_test
+package updateaction_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thepwagner/action-update/actions/update"
+	"github.com/thepwagner/action-update/actions/updateaction"
 )
 
-func TestConfig_Batches(t *testing.T) {
+func TestEnvironment_Batches(t *testing.T) {
 	cases := []struct {
 		input   string
 		batches map[string][]string
@@ -41,7 +41,7 @@ foz: baz`,
 	}
 
 	for _, tc := range cases {
-		e := update.Config{InputBatches: tc.input}
+		e := updateaction.Environment{InputBatches: tc.input}
 		b, err := e.Batches()
 		require.NoError(t, err)
 		assert.Equal(t, tc.batches, b)

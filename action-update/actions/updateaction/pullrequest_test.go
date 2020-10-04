@@ -1,4 +1,4 @@
-package update
+package updateaction_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-github/v32/github"
 	"github.com/stretchr/testify/assert"
+	"github.com/thepwagner/action-update/actions/updateaction"
 )
 
 func TestPullRequest_UnhandledAction(t *testing.T) {
@@ -33,7 +34,6 @@ func TestPullRequest_Reopened_InvalidSignature(t *testing.T) {
 }
 
 func prHandler(evt *github.PullRequestEvent) error {
-	ctx := context.Background()
-	handler := NewHandlers(&Config{}, nil)["pull_request"]
-	return handler(ctx, evt)
+	handlers := updateaction.NewHandlers(&updateaction.Environment{}, nil)
+	return handlers.PullRequest(context.Background(), evt)
 }

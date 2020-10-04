@@ -122,7 +122,7 @@ github.com/stretchr/testify/require
 # github.com/thepwagner/action-update v0.0.1 => ../action-update
 ## explicit
 github.com/thepwagner/action-update/actions
-github.com/thepwagner/action-update/actions/update
+github.com/thepwagner/action-update/actions/updateaction
 github.com/thepwagner/action-update/cmd
 github.com/thepwagner/action-update/repo
 github.com/thepwagner/action-update/updater

@@ -1,4 +1,4 @@
-package update
+package updateaction
 
 import (
 	"fmt"
@@ -8,8 +8,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	actions.Config
+// Environment extends actions.Environment with configuration specific to update actions.
+type Environment struct {
+	actions.Environment
 
 	// Inputs common to every updater:
 	GitHubToken     string `env:"INPUT_TOKEN"`
@@ -20,7 +21,7 @@ type Config struct {
 }
 
 // Branches returns slice of all configured branches to update.
-func (e *Config) Branches() (branches []string) {
+func (e *Environment) Branches() (branches []string) {
 	for _, b := range strings.Split(e.InputBranches, "\n") {
 		if s := strings.TrimSpace(b); s != "" {
 			branches = append(branches, s)
@@ -30,7 +31,7 @@ func (e *Config) Branches() (branches []string) {
 }
 
 // Batches returns a simple update batching configuration
-func (e *Config) Batches() (map[string][]string, error) {
+func (e *Environment) Batches() (map[string][]string, error) {
 	raw := map[string]interface{}{}
 	if err := yaml.Unmarshal([]byte(e.InputBatches), &raw); err != nil {
 		return nil, fmt.Errorf("decoding batches yaml: %w", err)
