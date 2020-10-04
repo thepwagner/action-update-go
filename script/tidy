@@ -1,0 +1,15 @@
+#!/bin/bash -e
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+source "script/_common"
+
+for MOD in $MODULES; do
+  NAME=$(basename "$(dirname "$MOD")")
+  echo -e "${GREEN}> ${NAME}${NC}"
+  cd "$NAME"
+  go mod tidy
+  # 'go' vendors, for faster startup as an action
+  [ "$NAME" == "go" ] && go mod vendor
+  cd - >/dev/null
+done

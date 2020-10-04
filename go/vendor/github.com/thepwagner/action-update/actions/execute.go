@@ -9,11 +9,16 @@ import (
 )
 
 // Execute loads `config` from environment, then selects the
-func Execute(ctx context.Context, config actionsConfig, handlers HandlersByEventName) error {
+func Execute(ctx context.Context, config interface{}, handlers HandlersByEventName) error {
+	ac, ok := config.(actionsConfig)
+	if !ok {
+		return fmt.Errorf("config should embed actions.Config")
+	}
+
 	if err := env.Parse(config); err != nil {
 		return fmt.Errorf("parsing environment: %w", err)
 	}
-	cfg := config.cfg()
+	cfg := ac.cfg()
 	return HandleEvent(ctx, cfg, handlers)
 }
 

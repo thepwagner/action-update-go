@@ -4,10 +4,10 @@ go 1.15
 
 require (
 	github.com/dependabot/gomodules-extracted v1.1.0
+	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/moby/buildkit v0.7.2
 	github.com/stretchr/testify v1.6.1
 	github.com/thepwagner/action-update v0.0.1
-	github.com/thepwagner/action-update-go v0.0.0-20201003151543-0bb3c9440698
 )
 
 replace (

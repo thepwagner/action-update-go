@@ -15,6 +15,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/thepwagner/action-update-docker/docker"
+	"github.com/thepwagner/action-update-dockerurl/dockerurl"
 	"github.com/thepwagner/action-update-go/gomodules"
 	"github.com/thepwagner/action-update/actions"
 	"github.com/thepwagner/action-update/actions/update"
@@ -24,8 +26,8 @@ import (
 )
 
 const (
-	flagKeepTmpDir = "Keep"
-	flagBranchName = "Branch"
+	cfgKeep       = "Keep"
+	cfgBranchName = "Branch"
 )
 
 var updateCmd = &cobra.Command{
@@ -33,8 +35,8 @@ var updateCmd = &cobra.Command{
 	Short:        "Perform dependency updates",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		viper.SetDefault(flagKeepTmpDir, false)
-		viper.SetDefault(flagBranchName, "master")
+		viper.SetDefault(cfgKeep, false)
+		viper.SetDefault(cfgBranchName, "master")
 
 		var target string
 		if len(args) > 0 {
@@ -47,7 +49,10 @@ var updateCmd = &cobra.Command{
 }
 
 func MockUpdate(ctx context.Context, target string) error {
-	logrus.WithField("target", target).Info("performing mock update")
+	logrus.WithFields(logrus.Fields{
+		"target":  target,
+		"updater": updaterType,
+	}).Info("performing mock update")
 
 	// Setup a tempdir for the clone:
 	dir, err := ioutil.TempDir("", "action-update-go-*")
@@ -56,7 +61,7 @@ func MockUpdate(ctx context.Context, target string) error {
 	}
 	dirLog := logrus.WithField("temp_dir", dir)
 	dirLog.Debug("created tempdir")
-	if !viper.GetBool(flagKeepTmpDir) {
+	if !viper.GetBool(cfgKeep) {
 		defer func() {
 			if err := os.RemoveAll(dir); err != nil {
 				dirLog.WithError(err).Warn("error cleaning temp dir")
@@ -77,10 +82,19 @@ func MockUpdate(ctx context.Context, target string) error {
 		return err
 	}
 
-	// TODO: updater flag
-	updaterFactory := func(root string) updater.Updater { return gomodules.NewUpdater(root) }
-	handlers := update.NewHandlers(cfg, updaterFactory)
+	var updaterFactory updater.Factory
+	switch updaterType {
+	case "docker":
+		updaterFactory = func(root string) updater.Updater { return docker.NewUpdater(root) }
+	case "dockerurl":
+		updaterFactory = func(root string) updater.Updater { return dockerurl.NewUpdater(root) }
+	case "go":
+		updaterFactory = func(root string) updater.Updater { return gomodules.NewUpdater(root) }
+	default:
+		return fmt.Errorf("unknown updater: %w", err)
+	}
 
+	handlers := update.NewHandlers(cfg, updaterFactory)
 	return actions.HandleEvent(ctx, &cfg.Config, handlers)
 }
 
@@ -184,7 +198,7 @@ func (p *parsedTarget) clonePullRequest(ctx context.Context, gh *github.Client, 
 }
 
 func (p *parsedTarget) cloneEvent(ctx context.Context, dir string) (*update.Config, error) {
-	branchName := viper.GetString(flagBranchName)
+	branchName := viper.GetString(cfgBranchName)
 	remoteRef := path.Join("refs/remotes/origin", branchName)
 	refSpec := fmt.Sprintf("+:%s", remoteRef)
 	if err := cmd.CommandExecute(ctx, dir, "git", "-c", "protocol.version=2", "fetch", "--no-tags",

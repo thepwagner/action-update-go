@@ -44,3 +44,17 @@ If your project has dependencies that require authentication, you can configure 
   with:
     token: ${{ secrets.MY_GITHUB_PAT }}
 ```
+
+
+#### But wait, there's more!
+
+This also contains some alternative updater implementations, in various states of quality.
+These should eventually be standalone Actions, but APIs are so fresh/churning that doing so would mean disrepair.
+
+This is temporarily a multi-module repo, to be forked to N repositories (1 per module) before `v1`.
+
+* `action-update` - shared code for updating dependencies from a GitHub Action
+* `cli` - a CLI interface for testing, biased towards emulating Actions checkout for consistency.
+* `docker` - incomplete updater for updating Dockerfile images (e.g. `FROM`)
+* `dockerurl` - updater implementation for updating "GitHub Release" URLs in Dockerfile (e.g. `ENV`/`ARG`)
+* `go` - updater implementation for go modules
