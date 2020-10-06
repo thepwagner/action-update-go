@@ -11,7 +11,7 @@ import (
 type RepoUpdater struct {
 	repo        Repo
 	updater     Updater
-	batchConfig map[string][]string
+	groups      Groups
 	branchNamer UpdateBranchNamer
 }
 
@@ -35,7 +35,7 @@ type Repo interface {
 
 type Updater interface {
 	Dependencies(context.Context) ([]Dependency, error)
-	Check(context.Context, Dependency) (*Update, error)
+	Check(ctx context.Context, dep Dependency, filter func(string) bool) (*Update, error)
 	ApplyUpdate(context.Context, Update) error
 }
 
@@ -59,13 +59,13 @@ func NewRepoUpdater(repo Repo, updater Updater, opts ...RepoUpdaterOpt) *RepoUpd
 
 type RepoUpdaterOpt func(*RepoUpdater)
 
-func WithBatches(batchConfig map[string][]string) RepoUpdaterOpt {
+func WithGroups(groups ...*Group) RepoUpdaterOpt {
 	return func(u *RepoUpdater) {
-		u.batchConfig = batchConfig
+		u.groups = groups
 	}
 }
 
-// Update creates a single update branch in the Repo.
+// Update creates a single update branch included the Repo.
 func (u *RepoUpdater) Update(ctx context.Context, baseBranch, branchName string, updates ...Update) error {
 	if err := u.repo.NewBranch(baseBranch, branchName); err != nil {
 		return fmt.Errorf("switching to target branch: %w", err)
@@ -82,7 +82,7 @@ func (u *RepoUpdater) Update(ctx context.Context, baseBranch, branchName string,
 	return nil
 }
 
-// UpdateAll creates updates from a base branch in the Repo.
+// UpdateAll creates updates from a base branch included the Repo.
 func (u *RepoUpdater) UpdateAll(ctx context.Context, branches ...string) error {
 	multiBranch := len(branches) > 1
 	for _, branch := range branches {
@@ -110,44 +110,37 @@ func (u *RepoUpdater) updateBranch(ctx context.Context, log logrus.FieldLogger, 
 	if err != nil {
 		return fmt.Errorf("getting dependencies: %w", err)
 	}
-	batches := GroupDependencies(u.batchConfig, deps)
+
+	groups, ungrouped := u.groups.GroupDependencies(deps)
 	log.WithFields(logrus.Fields{
-		"deps":    len(deps),
-		"batches": len(batches),
+		"deps":      len(deps),
+		"groups":    len(groups),
+		"ungrouped": len(ungrouped),
 	}).Info("parsed dependencies, checking for updates")
 
 	updates := 0
-	for batchBranch, batchDeps := range batches {
-		// Iterate dependencies, collecting updates:
-		var batchUpdates []Update
-		for _, dep := range batchDeps {
-			// Is an update available for this dependency?
-			depLog := log.WithField("path", dep.Path)
-			update := u.checkForUpdate(ctx, depLog, dep)
-			if update == nil {
-				continue
-			}
-			// There is an update to apply
-			depLog.WithField("next_version", update.Next).Debug("update available")
-			batchUpdates = append(batchUpdates, *update)
+	for groupName, groupDeps := range groups {
+		groupUpdates, err := u.groupedUpdate(ctx, log, branch, groupName, groupDeps)
+		if err != nil {
+			return err
 		}
-
-		if len(batchUpdates) == 0 {
-			continue
-		}
-
-		if batchBranch != "" {
-			if err := u.batchedUpdate(ctx, branch, batchBranch, batchUpdates); err != nil {
-				return err
-			}
-		} else {
-			if err := u.serialUpdates(ctx, branch, batchUpdates); err != nil {
-				return err
-			}
-		}
-
-		updates += len(batchUpdates)
+		log.WithFields(logrus.Fields{
+			"group":   groupName,
+			"updates": updates,
+		}).Debug("checked update group")
+		updates += groupUpdates
 	}
+
+	for _, dep := range ungrouped {
+		ok, err := u.singleUpdate(ctx, log, branch, dep)
+		if err != nil {
+			return err
+		}
+		if ok {
+			updates++
+		}
+	}
+
 	log.WithFields(logrus.Fields{
 		"deps":    len(deps),
 		"updates": updates,
@@ -156,57 +149,79 @@ func (u *RepoUpdater) updateBranch(ctx context.Context, log logrus.FieldLogger, 
 	return nil
 }
 
-func (u *RepoUpdater) checkForUpdate(ctx context.Context, log logrus.FieldLogger, dep Dependency) *Update {
-	update, err := u.updater.Check(ctx, dep)
+func (u *RepoUpdater) checkForUpdate(ctx context.Context, log logrus.FieldLogger, dep Dependency, filter func(string) bool) *Update {
+	update, err := u.updater.Check(ctx, dep, filter)
 	if err != nil {
 		log.WithError(err).Warn("error checking for updates")
 		return nil
 	}
-	if update == nil {
-		return nil
-	}
-
 	return update
 }
 
-func (u *RepoUpdater) serialUpdates(ctx context.Context, base string, updates []Update) error {
-	for _, update := range updates {
-		updateLog := logrus.WithFields(logrus.Fields{
-			"path":     update.Path,
-			"previous": update.Previous,
-			"next":     update.Next,
-		})
-		updateLog.Info("attempting update...")
-		branch := u.branchNamer.Format(base, update)
-		if err := u.repo.NewBranch(base, branch); err != nil {
-			return fmt.Errorf("switching to target branch: %w", err)
-		}
-		if err := u.updater.ApplyUpdate(ctx, update); err != nil {
-			return fmt.Errorf("applying batched update: %w", err)
-		}
-		if err := u.repo.Push(ctx, update); err != nil {
-			return fmt.Errorf("pushing update: %w", err)
-		}
-		updateLog.Info("update complete")
+func (u *RepoUpdater) singleUpdate(ctx context.Context, log logrus.FieldLogger, baseBranch string, dep Dependency) (bool, error) {
+	depLog := log.WithField("path", dep.Path)
+	update := u.checkForUpdate(ctx, depLog, dep, nil)
+	if update == nil {
+		return false, nil
 	}
-	return nil
+
+	// There is an update to apply
+	updateLog := logrus.WithFields(logrus.Fields{
+		"path":     update.Path,
+		"previous": update.Previous,
+		"next":     update.Next,
+	})
+	updateLog.Info("attempting update...")
+	branch := u.branchNamer.Format(baseBranch, *update)
+	if err := u.repo.NewBranch(baseBranch, branch); err != nil {
+		return false, fmt.Errorf("switching to target branch: %w", err)
+	}
+	if err := u.updater.ApplyUpdate(ctx, *update); err != nil {
+		return false, fmt.Errorf("applying batched update: %w", err)
+	}
+	if err := u.repo.Push(ctx, *update); err != nil {
+		return false, fmt.Errorf("pushing update: %w", err)
+	}
+	updateLog.Info("update complete")
+
+	return true, nil
 }
 
-func (u *RepoUpdater) batchedUpdate(ctx context.Context, base, batchName string, updates []Update) error {
-	branch := u.branchNamer.FormatBatch(base, batchName)
-	if err := u.repo.NewBranch(base, branch); err != nil {
-		return fmt.Errorf("switching to target branch: %w", err)
+func (u *RepoUpdater) groupedUpdate(ctx context.Context, log logrus.FieldLogger, baseBranch, groupName string, deps []Dependency) (int, error) {
+	group := u.groups.ByName(groupName)
+
+	// Iterate dependencies, collecting updates:
+	var updates []Update
+	for _, dep := range deps {
+		// Is an update available for this dependency?
+		depLog := log.WithField("path", dep.Path)
+		update := u.checkForUpdate(ctx, depLog, dep, group.InRange)
+		if update == nil {
+			continue
+		}
+		// There is an update to apply
+		updateLog := depLog.WithField("next_version", update.Next)
+		updateLog.Debug("update available")
+		updates = append(updates, *update)
+	}
+	if len(updates) == 0 {
+		return 0, nil
+	}
+
+	// Updates are available, prepare branch:
+	branch := u.branchNamer.FormatBatch(baseBranch, groupName)
+	if err := u.repo.NewBranch(baseBranch, branch); err != nil {
+		return 0, fmt.Errorf("switching to target branch: %w", err)
 	}
 
 	for _, update := range updates {
 		if err := u.updater.ApplyUpdate(ctx, update); err != nil {
-			return fmt.Errorf("applying batched update: %w", err)
+			return 0, fmt.Errorf("applying batched update: %w", err)
 		}
 	}
 
 	if err := u.repo.Push(ctx, updates...); err != nil {
-		return fmt.Errorf("pushing update: %w", err)
+		return 0, fmt.Errorf("pushing update: %w", err)
 	}
-
-	return nil
+	return len(updates), nil
 }

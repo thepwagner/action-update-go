@@ -47,9 +47,9 @@ func (h *handler) repo() (updater.Repo, error) {
 }
 
 func (h *handler) repoUpdater(repo updater.Repo) (*updater.RepoUpdater, error) {
-	batches, err := h.cfg.Batches()
+	groups, err := updater.ParseGroups(h.cfg.InputGroups)
 	if err != nil {
 		return nil, err
 	}
-	return updater.NewRepoUpdater(repo, h.updaterFactory.NewUpdater(repo.Root()), updater.WithBatches(batches)), nil
+	return updater.NewRepoUpdater(repo, h.updaterFactory.NewUpdater(repo.Root()), updater.WithGroups(groups...)), nil
 }

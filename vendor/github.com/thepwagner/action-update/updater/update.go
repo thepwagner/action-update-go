@@ -4,7 +4,7 @@ import (
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 )
 
-// Update is change in version to a specific module path
+// Update is change included version to a specific module path
 type Update struct {
 	// Path of module being updated
 	Path string `json:"path"`

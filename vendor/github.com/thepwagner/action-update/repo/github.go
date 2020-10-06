@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
-	updater2 "github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updater"
 	"golang.org/x/oauth2"
 )
 
@@ -22,10 +22,10 @@ type GitHubRepo struct {
 	repoName  string
 }
 
-var _ updater2.Repo = (*GitHubRepo)(nil)
+var _ updater.Repo = (*GitHubRepo)(nil)
 
 type PullRequestContent interface {
-	Generate(context.Context, ...updater2.Update) (title, body string, err error)
+	Generate(context.Context, ...updater.Update) (title, body string, err error)
 }
 
 func NewGitHubRepo(repo *GitRepo, hmacKey []byte, repoNameOwner, token string) (*GitHubRepo, error) {
@@ -65,7 +65,7 @@ func (g *GitHubRepo) Fetch(ctx context.Context, branch string) error {
 }
 
 // Push follows the git push with opening a pull request
-func (g *GitHubRepo) Push(ctx context.Context, updates ...updater2.Update) error {
+func (g *GitHubRepo) Push(ctx context.Context, updates ...updater.Update) error {
 	if err := g.repo.Push(ctx, updates...); err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (g *GitHubRepo) Push(ctx context.Context, updates ...updater2.Update) error
 	return nil
 }
 
-func (g *GitHubRepo) createPR(ctx context.Context, updates []updater2.Update) error {
+func (g *GitHubRepo) createPR(ctx context.Context, updates []updater.Update) error {
 	title, body, err := g.prContent.Generate(ctx, updates...)
 	if err != nil {
 		return fmt.Errorf("generating PR prContent: %w", err)
