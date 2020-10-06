@@ -20,7 +20,7 @@ import (
 	"github.com/thepwagner/action-update/updater"
 )
 
-func (u *Updater) Check(ctx context.Context, dep updater.Dependency) (*updater.Update, error) {
+func (u *Updater) Check(ctx context.Context, dep updater.Dependency, filter func(string) bool) (*updater.Update, error) {
 	log := logrus.WithField("path", dep.Path)
 
 	if modfetch.IsPseudoVersion(dep.Version) {
@@ -29,7 +29,7 @@ func (u *Updater) Check(ctx context.Context, dep updater.Dependency) (*updater.U
 	}
 
 	if u.MajorVersions {
-		latest, err := u.checkForMajorUpdate(ctx, dep)
+		latest, err := u.checkForMajorUpdate(ctx, dep, filter)
 		if err != nil {
 			return nil, fmt.Errorf("checking for major update: %w", err)
 		}
@@ -38,14 +38,14 @@ func (u *Updater) Check(ctx context.Context, dep updater.Dependency) (*updater.U
 		}
 	}
 
-	latest, err := u.checkForUpdate(ctx, dep)
+	latest, err := u.checkForUpdate(ctx, dep, filter)
 	if err != nil {
 		return nil, fmt.Errorf("checking for update: %w", err)
 	}
 	return latest, nil
 }
 
-func (u *Updater) checkForMajorUpdate(ctx context.Context, dep updater.Dependency) (*updater.Update, error) {
+func (u *Updater) checkForMajorUpdate(ctx context.Context, dep updater.Dependency, filter func(string) bool) (*updater.Update, error) {
 	// Does this look like a versioned path?
 	nextMajorPath := pathNextMajorVersion(dep.Path)
 	if nextMajorPath == "" {
@@ -55,13 +55,15 @@ func (u *Updater) checkForMajorUpdate(ctx context.Context, dep updater.Dependenc
 	log := logrus.WithField("path", dep.Path)
 	log.Debug("querying latest major version")
 
-	latest, err := u.queryModuleVersions(ctx, nextMajorPath)
+	latest, err := u.queryModuleVersions(ctx, nextMajorPath, filter)
 	if err != nil {
 		if strings.Contains(err.Error(), "exit status 1") {
 			// Assume we queried for a major version that doesn't exist
 			return nil, nil
 		}
 		return nil, err
+	} else if latest == nil {
+		return nil, nil
 	}
 
 	log = log.WithFields(logrus.Fields{
@@ -102,13 +104,15 @@ func pathMajorVersion(basePath, major string) string {
 	return fmt.Sprintf("%s%s%s", basePath[:strings.LastIndex(basePath, sep)], sep, major)
 }
 
-func (u *Updater) checkForUpdate(ctx context.Context, dep updater.Dependency) (*updater.Update, error) {
+func (u *Updater) checkForUpdate(ctx context.Context, dep updater.Dependency, filter func(string) bool) (*updater.Update, error) {
 	log := logrus.WithField("path", dep.Path)
 	log.Debug("querying latest version")
 
-	nfo, err := u.queryModuleVersions(ctx, dep.Path)
+	nfo, err := u.queryModuleVersions(ctx, dep.Path, filter)
 	if err != nil {
 		return nil, err
+	} else if nfo == nil {
+		return nil, nil
 	}
 
 	var latestVersion = nfo.Version
@@ -134,7 +138,7 @@ func (u *Updater) checkForUpdate(ctx context.Context, dep updater.Dependency) (*
 	}, nil
 }
 
-func (u *Updater) queryModuleVersions(ctx context.Context, path string) (*modinfo.ModulePublic, error) {
+func (u *Updater) queryModuleVersions(ctx context.Context, path string, filter func(string) bool) (*modinfo.ModulePublic, error) {
 	if closer, err := u.ensureGomodInRoot(); err != nil {
 		return nil, err
 	} else if closer != nil {
@@ -166,6 +170,25 @@ func (u *Updater) queryModuleVersions(ctx context.Context, path string) (*modinf
 	if nfo.Version == "" {
 		return nil, fmt.Errorf("invalid version response")
 	}
+
+	if filter != nil {
+		if !filter(nfo.Version) {
+			nfo.Version = ""
+		}
+
+		filtered := make([]string, 0, len(nfo.Versions))
+		for _, v := range nfo.Versions {
+			if filter(v) {
+				filtered = append(filtered, v)
+			}
+		}
+		nfo.Versions = filtered
+	}
+	if nfo.Version == "" && len(nfo.Versions) == 0 {
+		logrus.WithField("path", nfo.Path).Info("all versions ignored by filter")
+		return nil, nil
+	}
+
 	return &nfo, nil
 }
 
