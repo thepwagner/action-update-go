@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	updater2 "github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updater"
 )
 
-type commitMessageGen func(...updater2.Update) string
+type commitMessageGen func(...updater.Update) string
 
-var defaultCommitMessage = func(updates ...updater2.Update) string {
+var defaultCommitMessage = func(updates ...updater.Update) string {
 	if len(updates) == 1 {
 		update := updates[0]
 		return fmt.Sprintf("%s@%s", update.Path, update.Next)

@@ -13,7 +13,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update/cmd"
-	updater2 "github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updater"
 )
 
 const RemoteName = "origin"
@@ -29,7 +29,7 @@ type GitRepo struct {
 	NoPush        bool
 }
 
-var _ updater2.Repo = (*GitRepo)(nil)
+var _ updater.Repo = (*GitRepo)(nil)
 
 // GitIdentity performs commits.
 type GitIdentity struct {
@@ -196,7 +196,7 @@ func (t *GitRepo) Fetch(ctx context.Context, branch string) error {
 	return nil
 }
 
-func (t *GitRepo) Push(ctx context.Context, update ...updater2.Update) error {
+func (t *GitRepo) Push(ctx context.Context, update ...updater.Update) error {
 	commitMessage := t.commitMessage(update...)
 	if err := t.commit(commitMessage); err != nil {
 		return err

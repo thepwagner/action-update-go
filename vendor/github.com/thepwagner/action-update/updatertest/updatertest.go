@@ -32,10 +32,10 @@ func DependenciesFixtures(t *testing.T, factory updater.Factory, cases map[strin
 	}
 }
 
-func CheckInFixture(t *testing.T, fixture string, factory updater.Factory, dep updater.Dependency) *updater.Update {
+func CheckInFixture(t *testing.T, fixture string, factory updater.Factory, dep updater.Dependency, filter func(string) bool) *updater.Update {
 	tempDir := TempDirFromFixture(t, fixture)
 	u := factory.NewUpdater(tempDir)
-	update, err := u.Check(context.Background(), dep)
+	update, err := u.Check(context.Background(), dep, filter)
 	require.NoError(t, err)
 	return update
 }

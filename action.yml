@@ -23,13 +23,15 @@ inputs:
   log_level:
     description: 'Control debug/info/warn/error output'
     required: false
-  batches:
+  groups:
     description: >
       Configuration for grouping updates together, as a nested YAML of lists:
       e.g.
-        internal: [github.com/thepwagner/]
-        aws:
-          - github.com/aws
+        - name: internal
+          pattern: github.com/thepwagner
+        - name: aws
+          pattern: /.*aws.*/
+          range: >= 2.0.0, <3.0.0
     required: false
 runs:
   using: "composite"
@@ -45,6 +47,6 @@ runs:
       shell: bash
       env:
         INPUT_BRANCHES: ${{ inputs.branches }}
-        INPUT_BATCHES: ${{ inputs.batches }}
+        INPUT_GROUPS: ${{ inputs.groups }}
         INPUT_TOKEN: ${{ inputs.token }}
         INPUT_LOG_LEVEL: ${{ inputs.log_level }}

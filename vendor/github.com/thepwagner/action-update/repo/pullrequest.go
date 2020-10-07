@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v32/github"
-	updater2 "github.com/thepwagner/action-update/updater"
+	"github.com/thepwagner/action-update/updater"
 )
 
 type GitHubPullRequestContent struct {
@@ -26,7 +26,7 @@ func NewGitHubPullRequestContent(gh *github.Client, key []byte) *GitHubPullReque
 	}
 }
 
-func (d *GitHubPullRequestContent) Generate(ctx context.Context, updates ...updater2.Update) (title, body string, err error) {
+func (d *GitHubPullRequestContent) Generate(ctx context.Context, updates ...updater.Update) (title, body string, err error) {
 	if len(updates) == 1 {
 		update := updates[0]
 		title = fmt.Sprintf("Update %s from %s to %s", update.Path, update.Previous, update.Next)
@@ -43,17 +43,17 @@ const (
 	closeToken = "-->"
 )
 
-func (d *GitHubPullRequestContent) ParseBody(s string) []updater2.Update {
+func (d *GitHubPullRequestContent) ParseBody(s string) []updater.Update {
 	signed := ExtractSignedUpdateDescriptor(s)
 	if signed == nil {
 		return nil
 	}
 
-	updates, _ := updater2.VerifySignedUpdateDescriptor(d.key, *signed)
+	updates, _ := updater.VerifySignedUpdateDescriptor(d.key, *signed)
 	return updates
 }
 
-func ExtractSignedUpdateDescriptor(s string) *updater2.SignedUpdateDescriptor {
+func ExtractSignedUpdateDescriptor(s string) *updater.SignedUpdateDescriptor {
 	lastOpen := strings.LastIndex(s, openToken)
 	if lastOpen == -1 {
 		return nil
@@ -61,14 +61,14 @@ func ExtractSignedUpdateDescriptor(s string) *updater2.SignedUpdateDescriptor {
 	closeAfterOpen := strings.Index(s[lastOpen:], closeToken)
 	raw := s[lastOpen+len(openToken) : lastOpen+closeAfterOpen]
 
-	var signed updater2.SignedUpdateDescriptor
+	var signed updater.SignedUpdateDescriptor
 	if err := json.Unmarshal([]byte(raw), &signed); err != nil {
 		return nil
 	}
 	return &signed
 }
 
-func (d *GitHubPullRequestContent) bodySingle(ctx context.Context, update updater2.Update) (string, error) {
+func (d *GitHubPullRequestContent) bodySingle(ctx context.Context, update updater.Update) (string, error) {
 	var body strings.Builder
 	_, _ = fmt.Fprintf(&body, "Here is %s %s, I hope it works.\n", update.Path, update.Next)
 
@@ -81,7 +81,7 @@ func (d *GitHubPullRequestContent) bodySingle(ctx context.Context, update update
 	return body.String(), nil
 }
 
-func (d *GitHubPullRequestContent) bodyMulti(ctx context.Context, updates []updater2.Update) (string, error) {
+func (d *GitHubPullRequestContent) bodyMulti(ctx context.Context, updates []updater.Update) (string, error) {
 	var body strings.Builder
 	body.WriteString("Here are some updates, I hope they work.\n\n")
 
@@ -102,7 +102,7 @@ func (d *GitHubPullRequestContent) bodyMulti(ctx context.Context, updates []upda
 	return body.String(), nil
 }
 
-func (d *GitHubPullRequestContent) writeGitHubChangelog(ctx context.Context, out io.Writer, update updater2.Update) error {
+func (d *GitHubPullRequestContent) writeGitHubChangelog(ctx context.Context, out io.Writer, update updater.Update) error {
 	if !strings.HasPrefix(update.Path, "github.com/") {
 		return nil
 	}
@@ -123,8 +123,8 @@ func (d *GitHubPullRequestContent) writeGitHubChangelog(ctx context.Context, out
 	return nil
 }
 
-func (d *GitHubPullRequestContent) writeUpdateSignature(out io.Writer, updates ...updater2.Update) error {
-	dsc, err := updater2.NewSignedUpdateDescriptor(d.key, updates...)
+func (d *GitHubPullRequestContent) writeUpdateSignature(out io.Writer, updates ...updater.Update) error {
+	dsc, err := updater.NewSignedUpdateDescriptor(d.key, updates...)
 	if err != nil {
 		return fmt.Errorf("signing updates: %w", err)
 	}

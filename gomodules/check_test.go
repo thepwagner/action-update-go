@@ -19,15 +19,21 @@ var goGitHub29 = updater.Dependency{
 }
 
 func TestUpdater_Check_MajorVersions(t *testing.T) {
-	u := updatertest.CheckInFixture(t, "simple", updaterFactory(gomodules.WithMajorVersions(true)), goGitHub29)
+	u := updatertest.CheckInFixture(t, "simple", updaterFactory(gomodules.WithMajorVersions(true)), goGitHub29, nil)
 	require.NotNil(t, u)
 	t.Log(u.Next)
 	assert.True(t, semver.Compare("v29", u.Next) < 0)
 	assert.NotEqual(t, "v29", semver.Major(u.Next))
 }
 
+func TestUpdater_Check_Filter(t *testing.T) {
+	rejectAll := func(string) bool { return false }
+	u := updatertest.CheckInFixture(t, "simple", updaterFactory(gomodules.WithMajorVersions(true)), goGitHub29, rejectAll)
+	assert.Nil(t, u)
+}
+
 func TestUpdater_Check_NotMajorVersions(t *testing.T) {
-	u := updatertest.CheckInFixture(t, "simple", updaterFactory(gomodules.WithMajorVersions(false)), goGitHub29)
+	u := updatertest.CheckInFixture(t, "simple", updaterFactory(gomodules.WithMajorVersions(false)), goGitHub29, nil)
 	require.NotNil(t, u)
 	t.Log(u.Next)
 	assert.True(t, semver.Compare("v29", u.Next) < 0)
@@ -38,7 +44,7 @@ func TestUpdater_Check_GopkgIn(t *testing.T) {
 	u := updatertest.CheckInFixture(t, "gopkg", updaterFactory(gomodules.WithMajorVersions(true)), updater.Dependency{
 		Path:    "gopkg.in/yaml.v1",
 		Version: "v1.0.0",
-	})
+	}, nil)
 	require.NotNil(t, u)
 	t.Log(u.Next)
 	assert.True(t, semver.Compare("v1", u.Next) < 0)
@@ -52,7 +58,7 @@ func TestUpdater_Check_MajorVersionsNotAvailable(t *testing.T) {
 		Version: "v32.0.0",
 	}
 
-	u := updatertest.CheckInFixture(t, "simple", updaterFactory(gomodules.WithMajorVersions(true)), latestGoGitHubMajor)
+	u := updatertest.CheckInFixture(t, "simple", updaterFactory(gomodules.WithMajorVersions(true)), latestGoGitHubMajor, nil)
 	require.NotNil(t, u)
 	t.Log(u.Next)
 	assert.True(t, semver.Compare("v32", u.Next) < 0)
@@ -65,7 +71,7 @@ func TestUpdater_Check_Multimodule(t *testing.T) {
 			u := updatertest.CheckInFixture(t, path, updaterFactory(gomodules.WithMajorVersions(false)), updater.Dependency{
 				Path:    "github.com/pkg/errors",
 				Version: "v0.8.0",
-			})
+			}, nil)
 			require.NotNil(t, u)
 			t.Log(u.Next)
 		})
