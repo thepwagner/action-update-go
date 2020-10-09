@@ -3,7 +3,9 @@ package updater
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 )
@@ -17,18 +19,13 @@ type Group struct {
 
 	// Parameters that apply to members:
 	// Range is a comma separated list of allowed semver ranges
-	Range     string    `yaml:"range"`
-	Frequency Frequency `yaml:"frequency"`
+	Range      string `yaml:"range"`
+	CoolDown   string `yaml:"cooldown"`
+	PreScript  string `yaml:"pre-script"`
+	PostScript string `yaml:"post-script"`
 
 	compiledPattern *regexp.Regexp
 }
-
-type Frequency string
-
-const (
-	FrequencyDaily  Frequency = "daily"
-	FrequencyWeekly Frequency = "weekly"
-)
 
 func (g *Group) Validate() error {
 	if g.Name == "" {
@@ -37,10 +34,8 @@ func (g *Group) Validate() error {
 	if g.Pattern == "" {
 		return fmt.Errorf("groups must specify pattern")
 	}
-	switch g.Frequency {
-	case "", FrequencyDaily, FrequencyWeekly:
-	default:
-		return fmt.Errorf("frequency must be: [%s,%s]", FrequencyDaily, FrequencyWeekly)
+	if !durPattern.MatchString(g.CoolDown) {
+		return fmt.Errorf("invalid cooldown, expected ISO8601 duration: %q", g.CoolDown)
 	}
 
 	if strings.HasPrefix(g.Pattern, "/") && strings.HasSuffix(g.Pattern, "/") {
@@ -55,7 +50,7 @@ func (g *Group) Validate() error {
 	return nil
 }
 
-func (g Group) InRange(v string) bool {
+func (g *Group) InRange(v string) bool {
 	for _, rangeCond := range strings.Split(g.Range, ",") {
 		rangeCond = strings.TrimSpace(rangeCond)
 		switch {
@@ -86,4 +81,43 @@ func cleanRange(rangeCond string, prefixLen int) string {
 		return fmt.Sprintf("v%s", s)
 	}
 	return s
+}
+
+var durPattern = regexp.MustCompile(`P?(((?P<year>\d+)Y)?((?P<month>\d+)M)?((?P<day>\d+)D)|(?P<week>\d+)W)?`)
+
+const (
+	oneYear  = 8766 * time.Hour
+	oneMonth = 730*time.Hour + 30*time.Minute
+	oneWeek  = 7 * 24 * time.Hour
+	oneDay   = 24 * time.Hour
+)
+
+func (g *Group) CoolDownDuration() time.Duration {
+	m := durPattern.FindStringSubmatch(g.CoolDown)
+
+	var ret time.Duration
+	for i, name := range durPattern.SubexpNames() {
+		part := m[i]
+		if i == 0 || name == "" || part == "" {
+			continue
+		}
+
+		val, err := strconv.Atoi(part)
+		if err != nil {
+			return 0
+		}
+		valDur := time.Duration(val)
+		switch name {
+		case "year":
+			ret += valDur * oneYear
+		case "month":
+			ret += valDur * oneMonth
+		case "week":
+			ret += valDur * oneWeek
+		case "day":
+			ret += valDur * oneDay
+		}
+	}
+
+	return ret
 }
