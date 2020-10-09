@@ -3,6 +3,8 @@ package updater
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 
 	"github.com/sirupsen/logrus"
 )
@@ -214,14 +216,39 @@ func (u *RepoUpdater) groupedUpdate(ctx context.Context, log logrus.FieldLogger,
 		return 0, fmt.Errorf("switching to target branch: %w", err)
 	}
 
+	if err := u.updateScript(ctx, "pre", group.PreScript); err != nil {
+		return 0, fmt.Errorf("executing pre-update script: %w", err)
+	}
+
 	for _, update := range updates {
 		if err := u.updater.ApplyUpdate(ctx, update); err != nil {
 			return 0, fmt.Errorf("applying batched update: %w", err)
 		}
 	}
 
+	if err := u.updateScript(ctx, "post", group.PostScript); err != nil {
+		return 0, fmt.Errorf("executing pre-update script: %w", err)
+	}
+
 	if err := u.repo.Push(ctx, updates...); err != nil {
 		return 0, fmt.Errorf("pushing update: %w", err)
 	}
 	return len(updates), nil
+}
+
+func (u *RepoUpdater) updateScript(ctx context.Context, label, script string) error {
+	if script == "" {
+		return nil
+	}
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", script)
+	cmd.Dir = u.repo.Root()
+	out := os.Stdout
+	_, _ = fmt.Fprintf(out, "--- start %s update script ---\n", label)
+	cmd.Stdout = out
+	cmd.Stderr = out
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(out, "--- end %s update script ---\n", label)
+	return nil
 }

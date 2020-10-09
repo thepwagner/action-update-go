@@ -1,7 +1,10 @@
 package updateaction
 
 import (
+	"context"
+
 	"github.com/go-git/go-git/v5"
+	"github.com/google/go-github/v32/github"
 	"github.com/thepwagner/action-update/actions"
 	gitrepo "github.com/thepwagner/action-update/repo"
 	"github.com/thepwagner/action-update/updater"
@@ -16,9 +19,12 @@ type HandlerParams interface {
 func NewHandlers(p HandlerParams) *actions.Handlers {
 	h := &handler{cfg: p.env(), updaterFactory: p}
 	return &actions.Handlers{
-		IssueComment:     IssueComment,
-		PullRequest:      h.PullRequest,
-		Schedule:         h.UpdateAll,
+		IssueComment: IssueComment,
+		PullRequest:  h.PullRequest,
+		Schedule:     h.UpdateAll,
+		RepositoryDispatch: func(ctx context.Context, _ *github.RepositoryDispatchEvent) error {
+			return h.UpdateAll(ctx)
+		},
 		WorkflowDispatch: h.UpdateAll,
 	}
 }

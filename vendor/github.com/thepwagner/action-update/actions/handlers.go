@@ -10,10 +10,11 @@ import (
 )
 
 type Handlers struct {
-	IssueComment     func(context.Context, *github.IssueCommentEvent) error
-	PullRequest      func(context.Context, *github.PullRequestEvent) error
-	Schedule         func(context.Context) error
-	WorkflowDispatch func(context.Context) error
+	IssueComment       func(context.Context, *github.IssueCommentEvent) error
+	PullRequest        func(context.Context, *github.PullRequestEvent) error
+	RepositoryDispatch func(context.Context, *github.RepositoryDispatchEvent) error
+	Schedule           func(context.Context) error
+	WorkflowDispatch   func(context.Context) error
 }
 
 // Handle invokes the appropriate handler for an given actions Environment.
@@ -70,6 +71,14 @@ func (h *Handlers) handler(event string) func(context.Context, interface{}) erro
 		}
 		return func(ctx context.Context, evt interface{}) error {
 			return h.PullRequest(ctx, evt.(*github.PullRequestEvent))
+		}
+
+	case "repository_dispatch":
+		if h.RepositoryDispatch == nil {
+			return nil
+		}
+		return func(ctx context.Context, evt interface{}) error {
+			return h.RepositoryDispatch(ctx, evt.(*github.RepositoryDispatchEvent))
 		}
 
 	case "schedule":
