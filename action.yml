@@ -47,6 +47,7 @@ runs:
       shell: bash
       env:
         INPUT_BRANCHES: ${{ inputs.branches }}
-        INPUT_GROUPS: ${{ inputs.groups }}
         INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_SIGNING_KEY: ${{ inputs.signing_key }}
         INPUT_LOG_LEVEL: ${{ inputs.log_level }}
+        INPUT_GROUPS: ${{ inputs.groups }}
