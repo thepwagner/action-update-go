@@ -1,6 +1,8 @@
 package updateaction
 
 import (
+	"crypto/sha512"
+	"fmt"
 	"strings"
 
 	"github.com/thepwagner/action-update/actions"
@@ -12,7 +14,7 @@ type Environment struct {
 
 	// Inputs common to every updater:
 	GitHubToken     string `env:"INPUT_TOKEN"`
-	InputSigningKey []byte `env:"INPUT_SIGNING_KEY"`
+	InputSigningKey string `env:"INPUT_SIGNING_KEY"`
 	InputGroups     string `env:"INPUT_GROUPS"`
 	InputBranches   string `env:"INPUT_BRANCHES"`
 	NoPush          bool   `env:"INPUT_NO_PUSH"`
@@ -26,6 +28,12 @@ func (e *Environment) Branches() (branches []string) {
 		}
 	}
 	return
+}
+
+func (e *Environment) SigningKey() []byte {
+	h := sha512.New()
+	_, _ = fmt.Fprint(h, e.InputSigningKey)
+	return h.Sum(nil)
 }
 
 // UpdateEnvironment smuggles *Environment out of structs that embed one.

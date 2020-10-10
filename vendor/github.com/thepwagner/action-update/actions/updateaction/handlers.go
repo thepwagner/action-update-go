@@ -49,7 +49,7 @@ func (h *handler) repo() (updater.Repo, error) {
 		return gitRepo, nil
 	}
 
-	return gitrepo.NewGitHubRepo(gitRepo, h.cfg.InputSigningKey, h.cfg.GitHubRepository, h.cfg.GitHubToken)
+	return gitrepo.NewGitHubRepo(gitRepo, h.cfg.SigningKey(), h.cfg.GitHubRepository, h.cfg.GitHubToken)
 }
 
 func (h *handler) repoUpdater(repo updater.Repo) (*updater.RepoUpdater, error) {

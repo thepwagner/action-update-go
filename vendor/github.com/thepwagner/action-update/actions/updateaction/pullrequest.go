@@ -37,7 +37,7 @@ func (h *handler) prReopened(ctx context.Context, evt *github.PullRequestEvent) 
 		log.Info("ignoring PR")
 		return nil
 	}
-	updates, err := updater.VerifySignedUpdateDescriptor(h.cfg.InputSigningKey, *signed)
+	updates, err := updater.VerifySignedUpdateDescriptor(h.cfg.SigningKey(), *signed)
 	if err != nil {
 		return err
 	}
