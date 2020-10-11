@@ -196,8 +196,8 @@ func (t *GitRepo) Fetch(ctx context.Context, branch string) error {
 	return nil
 }
 
-func (t *GitRepo) Push(ctx context.Context, update ...updater.Update) error {
-	commitMessage := t.commitMessage(update...)
+func (t *GitRepo) Push(ctx context.Context, updates updater.UpdateGroup) error {
+	commitMessage := t.commitMessage(updates)
 	if err := t.commit(commitMessage); err != nil {
 		return err
 	}

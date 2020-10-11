@@ -12,6 +12,15 @@ type Update struct {
 	Next string `json:"next"`
 }
 
+type UpdateGroup struct {
+	Name    string   `json:"name,omitempty"`
+	Updates []Update `json:"updates"`
+}
+
+func NewUpdateGroup(name string, updates ...Update) UpdateGroup {
+	return UpdateGroup{Name: name, Updates: updates}
+}
+
 // ExistingUpdate is a previously proposed update(s).
 type ExistingUpdate struct {
 	// Is this update still in a proposed state?
@@ -19,7 +28,6 @@ type ExistingUpdate struct {
 	// If not open, was this update accepted?
 	Merged     bool
 	BaseBranch string
-	GroupName  string
 	LastUpdate time.Time
-	Updates    []Update
+	Group      UpdateGroup
 }

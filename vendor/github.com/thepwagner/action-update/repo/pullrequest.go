@@ -26,9 +26,9 @@ func NewGitHubPullRequestContent(gh *github.Client, key []byte) *GitHubPullReque
 	}
 }
 
-func (d *GitHubPullRequestContent) Generate(ctx context.Context, updates ...updater.Update) (title, body string, err error) {
-	if len(updates) == 1 {
-		update := updates[0]
+func (d *GitHubPullRequestContent) Generate(ctx context.Context, updates updater.UpdateGroup) (title, body string, err error) {
+	if len(updates.Updates) == 1 {
+		update := updates.Updates[0]
 		title = fmt.Sprintf("Update %s from %s to %s", update.Path, update.Previous, update.Next)
 		body, err = d.bodySingle(ctx, update)
 	} else {
@@ -43,17 +43,17 @@ const (
 	closeToken = "-->"
 )
 
-func (d *GitHubPullRequestContent) ParseBody(s string) []updater.Update {
-	signed := ExtractSignedUpdateDescriptor(s)
+func (d *GitHubPullRequestContent) ParseBody(s string) *updater.UpdateGroup {
+	signed := ExtractSignedUpdateGroup(s)
 	if signed == nil {
 		return nil
 	}
 
-	updates, _ := updater.VerifySignedUpdateDescriptor(d.key, *signed)
+	updates, _ := updater.VerifySignedUpdateGroup(d.key, *signed)
 	return updates
 }
 
-func ExtractSignedUpdateDescriptor(s string) *updater.SignedUpdateDescriptor {
+func ExtractSignedUpdateGroup(s string) *updater.SignedUpdateGroup {
 	lastOpen := strings.LastIndex(s, openToken)
 	if lastOpen == -1 {
 		return nil
@@ -61,7 +61,7 @@ func ExtractSignedUpdateDescriptor(s string) *updater.SignedUpdateDescriptor {
 	closeAfterOpen := strings.Index(s[lastOpen:], closeToken)
 	raw := s[lastOpen+len(openToken) : lastOpen+closeAfterOpen]
 
-	var signed updater.SignedUpdateDescriptor
+	var signed updater.SignedUpdateGroup
 	if err := json.Unmarshal([]byte(raw), &signed); err != nil {
 		return nil
 	}
@@ -75,17 +75,18 @@ func (d *GitHubPullRequestContent) bodySingle(ctx context.Context, update update
 	if err := d.writeGitHubChangelog(ctx, &body, update); err != nil {
 		return "", err
 	}
-	if err := d.writeUpdateSignature(&body, update); err != nil {
+
+	if err := d.writeUpdateSignature(&body, updater.NewUpdateGroup("", update)); err != nil {
 		return "", fmt.Errorf("writing update signature: %w", err)
 	}
 	return body.String(), nil
 }
 
-func (d *GitHubPullRequestContent) bodyMulti(ctx context.Context, updates []updater.Update) (string, error) {
+func (d *GitHubPullRequestContent) bodyMulti(ctx context.Context, updates updater.UpdateGroup) (string, error) {
 	var body strings.Builder
 	body.WriteString("Here are some updates, I hope they work.\n\n")
 
-	for _, update := range updates {
+	for _, update := range updates.Updates {
 		_, _ = fmt.Fprintf(&body, "#### %s@%s\n", update.Path, update.Next)
 		before := body.Len()
 		if err := d.writeGitHubChangelog(ctx, &body, update); err != nil {
@@ -96,7 +97,7 @@ func (d *GitHubPullRequestContent) bodyMulti(ctx context.Context, updates []upda
 		}
 	}
 
-	if err := d.writeUpdateSignature(&body, updates...); err != nil {
+	if err := d.writeUpdateSignature(&body, updates); err != nil {
 		return "", fmt.Errorf("writing update signature: %w", err)
 	}
 	return body.String(), nil
@@ -123,8 +124,8 @@ func (d *GitHubPullRequestContent) writeGitHubChangelog(ctx context.Context, out
 	return nil
 }
 
-func (d *GitHubPullRequestContent) writeUpdateSignature(out io.Writer, updates ...updater.Update) error {
-	dsc, err := updater.NewSignedUpdateDescriptor(d.key, updates...)
+func (d *GitHubPullRequestContent) writeUpdateSignature(out io.Writer, updates updater.UpdateGroup) error {
+	dsc, err := updater.NewSignedUpdateGroup(d.key, updates)
 	if err != nil {
 		return fmt.Errorf("signing updates: %w", err)
 	}
