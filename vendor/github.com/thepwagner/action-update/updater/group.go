@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
+	"golang.org/x/mod/semver"
 )
 
 type Group struct {
