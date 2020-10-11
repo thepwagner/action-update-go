@@ -32,16 +32,18 @@ func (h *handler) prReopened(ctx context.Context, evt *github.PullRequestEvent) 
 		"number": pr.GetNumber(),
 	})
 
-	signed := repo.ExtractSignedUpdateDescriptor(pr.GetBody())
+	signed := repo.ExtractSignedUpdateGroup(pr.GetBody())
 	if signed == nil {
 		log.Info("ignoring PR")
 		return nil
 	}
-	updates, err := updater.VerifySignedUpdateDescriptor(h.cfg.SigningKey(), *signed)
+	updates, err := updater.VerifySignedUpdateGroup(h.cfg.SigningKey(), *signed)
 	if err != nil {
 		return err
+	} else if updates == nil {
+		return nil
 	}
-	log.WithField("updates", len(updates)).Debug("validated update PR")
+	log.WithField("updates", len(updates.Updates)).Debug("validated update PR")
 
 	r, err := h.repo()
 	if err != nil {
@@ -57,7 +59,7 @@ func (h *handler) prReopened(ctx context.Context, evt *github.PullRequestEvent) 
 		return fmt.Errorf("fetching base: %w", err)
 	}
 
-	if err := repoUpdater.Update(ctx, base, head, updates...); err != nil {
+	if err := repoUpdater.Update(ctx, base, head, *updates); err != nil {
 		return fmt.Errorf("performing update: %w", err)
 	}
 

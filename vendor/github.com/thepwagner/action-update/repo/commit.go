@@ -7,9 +7,10 @@ import (
 	"github.com/thepwagner/action-update/updater"
 )
 
-type commitMessageGen func(...updater.Update) string
+type commitMessageGen func(updater.UpdateGroup) string
 
-var defaultCommitMessage = func(updates ...updater.Update) string {
+var defaultCommitMessage = func(group updater.UpdateGroup) string {
+	updates := group.Updates
 	if len(updates) == 1 {
 		update := updates[0]
 		return fmt.Sprintf("%s@%s", update.Path, update.Next)

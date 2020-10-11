@@ -9,40 +9,40 @@ import (
 	"sort"
 )
 
-type SignedUpdateDescriptor struct {
-	Updates   []Update `json:"updates"`
-	Signature []byte   `json:"signature"`
+type SignedUpdateGroup struct {
+	Updates   UpdateGroup `json:"signed"`
+	Signature []byte      `json:"signature"`
 }
 
-func NewSignedUpdateDescriptor(key []byte, updates ...Update) (SignedUpdateDescriptor, error) {
+func NewSignedUpdateGroup(key []byte, updates UpdateGroup) (SignedUpdateGroup, error) {
 	signature, err := updatesHash(key, updates)
 	if err != nil {
-		return SignedUpdateDescriptor{}, err
+		return SignedUpdateGroup{}, err
 	}
-	return SignedUpdateDescriptor{
+	return SignedUpdateGroup{
 		Updates:   updates,
 		Signature: signature,
 	}, nil
 }
 
-func updatesHash(key []byte, updates []Update) ([]byte, error) {
-	sort.Slice(updates, func(i, j int) bool {
-		return updates[i].Path < updates[j].Path
+func updatesHash(key []byte, updates UpdateGroup) ([]byte, error) {
+	sort.Slice(updates.Updates, func(i, j int) bool {
+		return updates.Updates[i].Path < updates.Updates[j].Path
 	})
 	hash := hmac.New(sha512.New, key)
-	if err := json.NewEncoder(hash).Encode(updates); err != nil {
+	if err := json.NewEncoder(hash).Encode(&updates); err != nil {
 		return nil, err
 	}
 	return hash.Sum(nil), nil
 }
 
-func VerifySignedUpdateDescriptor(key []byte, descriptor SignedUpdateDescriptor) ([]Update, error) {
-	calculated, err := updatesHash(key, descriptor.Updates)
+func VerifySignedUpdateGroup(key []byte, signed SignedUpdateGroup) (*UpdateGroup, error) {
+	calculated, err := updatesHash(key, signed.Updates)
 	if err != nil {
 		return nil, fmt.Errorf("calculating signature: %w", err)
 	}
-	if subtle.ConstantTimeCompare(calculated, descriptor.Signature) != 1 {
+	if subtle.ConstantTimeCompare(calculated, signed.Signature) != 1 {
 		return nil, fmt.Errorf("invalid signature")
 	}
-	return descriptor.Updates, nil
+	return &signed.Updates, nil
 }
