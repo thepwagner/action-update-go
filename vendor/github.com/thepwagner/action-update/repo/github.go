@@ -105,11 +105,11 @@ func (g *GitHubRepo) createPR(ctx context.Context, updates updater.UpdateGroup) 
 	return nil
 }
 
-func (g *GitHubRepo) ExistingUpdates(ctx context.Context, baseBranch string) ([]updater.ExistingUpdate, error) {
+func (g *GitHubRepo) ExistingUpdates(ctx context.Context, baseBranch string) (updater.ExistingUpdates, error) {
 	return g.updateFromPR(ctx, baseBranch)
 }
 
-func (g *GitHubRepo) updateFromPR(ctx context.Context, baseBranch string) ([]updater.ExistingUpdate, error) {
+func (g *GitHubRepo) updateFromPR(ctx context.Context, baseBranch string) (updater.ExistingUpdates, error) {
 	// List pull requests targeting this branch:
 	prs, _, err := g.github.PullRequests.List(ctx, g.owner, g.repoName, &github.PullRequestListOptions{
 		State: "all",
