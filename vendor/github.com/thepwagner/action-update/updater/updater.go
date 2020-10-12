@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -33,6 +34,8 @@ type Repo interface {
 	Push(context.Context, UpdateGroup) error
 	// Fetch loads a remote ref without updating the working copy.
 	Fetch(ctx context.Context, branch string) error
+	// ExistingUpdates returns the state of recent updates
+	ExistingUpdates(ctx context.Context, baseBranch string) (ExistingUpdates, error)
 }
 
 type Updater interface {
@@ -113,6 +116,13 @@ func (u *RepoUpdater) updateBranch(ctx context.Context, log logrus.FieldLogger, 
 		return fmt.Errorf("getting dependencies: %w", err)
 	}
 
+	// Load existing updates
+	existing, err := u.repo.ExistingUpdates(ctx, branch)
+	if err != nil {
+		return fmt.Errorf("fetching existing updates: %w", err)
+	}
+
+	// Cluster dependencies into groups:
 	groups, ungrouped := u.groups.GroupDependencies(deps)
 	log.WithFields(logrus.Fields{
 		"deps":      len(deps),
@@ -122,14 +132,27 @@ func (u *RepoUpdater) updateBranch(ctx context.Context, log logrus.FieldLogger, 
 
 	updates := 0
 	for groupName, groupDeps := range groups {
+		groupLog := log.WithField("group", groupName)
+
+		if cd := u.groups.ByName(groupName).CoolDownDuration(); cd > 0 {
+			if latest := existing.LatestGroupUpdate(groupName); !latest.IsZero() {
+				ageOfLatest := time.Since(latest)
+				if ageOfLatest < cd {
+					groupLog.WithFields(logrus.Fields{
+						"cooldown": cd,
+						"age":      ageOfLatest,
+					}).Info("skipping group in cooldown")
+					continue
+				}
+			}
+		}
+
+		groupLog.WithField("deps", len(groupDeps)).Debug("checking update group")
 		groupUpdates, err := u.groupedUpdate(ctx, log, branch, groupName, groupDeps)
 		if err != nil {
 			return err
 		}
-		log.WithFields(logrus.Fields{
-			"group":   groupName,
-			"updates": updates,
-		}).Debug("checked update group")
+		groupLog.WithField("updates", groupUpdates).Debug("checked update group")
 		updates += groupUpdates
 	}
 

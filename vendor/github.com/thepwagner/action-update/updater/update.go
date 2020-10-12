@@ -31,3 +31,17 @@ type ExistingUpdate struct {
 	LastUpdate time.Time
 	Group      UpdateGroup
 }
+
+type ExistingUpdates []ExistingUpdate
+
+func (e ExistingUpdates) LatestGroupUpdate(group string) (latest time.Time) {
+	for _, u := range e {
+		if u.Group.Name != group {
+			continue
+		}
+		if u.LastUpdate.After(latest) {
+			latest = u.LastUpdate
+		}
+	}
+	return
+}

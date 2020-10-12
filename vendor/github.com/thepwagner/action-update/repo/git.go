@@ -282,3 +282,7 @@ func (t *GitRepo) push(ctx context.Context) error {
 	logrus.Debug("pushed to remote")
 	return nil
 }
+
+func (t *GitRepo) ExistingUpdates(context.Context, string) (updater.ExistingUpdates, error) {
+	return nil, nil
+}
