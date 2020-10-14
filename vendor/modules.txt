@@ -2,34 +2,34 @@
 github.com/caarlos0/env/v6
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
-# github.com/dependabot/gomodules-extracted v1.1.0
+# github.com/dependabot/gomodules-extracted v1.2.0
 ## explicit
+github.com/dependabot/gomodules-extracted/_internal_/cfg
+github.com/dependabot/gomodules-extracted/_internal_/lazyregexp
+github.com/dependabot/gomodules-extracted/_internal_/lazytemplate
 github.com/dependabot/gomodules-extracted/_internal_/singleflight
 github.com/dependabot/gomodules-extracted/_internal_/xcoff
 github.com/dependabot/gomodules-extracted/cmd/_internal_/browser
 github.com/dependabot/gomodules-extracted/cmd/_internal_/buildid
 github.com/dependabot/gomodules-extracted/cmd/_internal_/objabi
 github.com/dependabot/gomodules-extracted/cmd/_internal_/sys
+github.com/dependabot/gomodules-extracted/cmd/go/_internal_/auth
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/base
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/cache
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/cfg
-github.com/dependabot/gomodules-extracted/cmd/go/_internal_/dirhash
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/get
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/load
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/lockedfile
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/lockedfile/_internal_/filelock
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfetch
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfetch/codehost
-github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfile
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modinfo
-github.com/dependabot/gomodules-extracted/cmd/go/_internal_/module
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/par
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/renameio
+github.com/dependabot/gomodules-extracted/cmd/go/_internal_/robustio
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/search
-github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/str
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/web
-github.com/dependabot/gomodules-extracted/cmd/go/_internal_/web2
 github.com/dependabot/gomodules-extracted/cmd/go/_internal_/work
 # github.com/emirpasic/gods v1.12.0
 github.com/emirpasic/gods/containers
@@ -154,6 +154,11 @@ golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
 golang.org/x/mod/module
 golang.org/x/mod/semver
+golang.org/x/mod/sumdb
+golang.org/x/mod/sumdb/dirhash
+golang.org/x/mod/sumdb/note
+golang.org/x/mod/sumdb/tlog
+golang.org/x/mod/zip
 # golang.org/x/net v0.0.0-20200301022130-244492dfa37a
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
