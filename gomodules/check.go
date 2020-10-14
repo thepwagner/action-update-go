@@ -15,9 +15,9 @@ import (
 
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfetch"
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modinfo"
-	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update/updater"
+	"golang.org/x/mod/semver"
 )
 
 func (u *Updater) Check(ctx context.Context, dep updater.Dependency, filter func(string) bool) (*updater.Update, error) {

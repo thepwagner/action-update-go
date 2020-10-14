@@ -12,10 +12,10 @@ import (
 	"strings"
 
 	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfile"
-	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update/cmd"
 	"github.com/thepwagner/action-update/updater"
+	"golang.org/x/mod/semver"
 )
 
 func (u *Updater) ApplyUpdate(ctx context.Context, update updater.Update) error {
