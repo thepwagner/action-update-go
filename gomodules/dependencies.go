@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/modfile"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update/updater"
+	"golang.org/x/mod/modfile"
 )
 
 func (u *Updater) Dependencies(_ context.Context) ([]updater.Dependency, error) {
