@@ -5,8 +5,10 @@ This action checks for available dependency updates to a go project, and opens i
 * Ignores dependencies not released with semver
 * Go module major version updates (e.g. `github.com/foo/bar/v2`)
 * Vendoring detection and support
-* Can multiple multiple base branches
-* Update batching
+* All the features common to [action-update](https://github.com/thepwagner/action-update) actions
+  * Can monitor multiple base branches (e.g. `main`, `v1`)
+  * Update batching
+  * Post-update script hooks
 
 Suggested triggers: `schedule`, `workflow_dispatch`.
 
@@ -44,17 +46,3 @@ If your project has dependencies that require authentication, you can configure 
   with:
     token: ${{ secrets.MY_GITHUB_PAT }}
 ```
-
-
-#### But wait, there's more!
-
-This also contains some alternative updater implementations, in various states of quality.
-These should eventually be standalone Actions, but APIs are so fresh/churning that doing so would mean disrepair.
-
-This is temporarily a multi-module repo, to be forked to N repositories (1 per module) before `v1`.
-
-* `action-update` - shared code for updating dependencies from a GitHub Action
-* `cli` - a CLI interface for testing, biased towards emulating Actions checkout for consistency.
-* `docker` - incomplete updater for updating Dockerfile images (e.g. `FROM`)
-* `dockerurl` - updater implementation for updating "GitHub Release" URLs in Dockerfile (e.g. `ENV`/`ARG`)
-* `go` - updater implementation for go modules
