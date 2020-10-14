@@ -1,8 +1,8 @@
 package gomodules
 
 import (
-	"github.com/dependabot/gomodules-extracted/cmd/go/_internal_/semver"
 	"github.com/thepwagner/action-update/updater"
+	"golang.org/x/mod/semver"
 )
 
 type Updater struct {
