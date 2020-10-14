@@ -1,5 +1,7 @@
 # action-update-go
 
+## This is not endorsed by or associated with GitHub, Dependabot, etc.
+
 This action checks for available dependency updates to a go project, and opens individual pull requests proposing each available update.
 
 * Ignores dependencies not released with semver
