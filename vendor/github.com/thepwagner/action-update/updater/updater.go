@@ -150,7 +150,8 @@ func (u *RepoUpdater) updateBranch(ctx context.Context, log logrus.FieldLogger, 
 		groupLog.WithField("deps", len(groupDeps)).Debug("checking update group")
 		groupUpdates, err := u.groupedUpdate(ctx, log, branch, groupName, groupDeps)
 		if err != nil {
-			return err
+			groupLog.WithError(err).Error("error processing update group")
+			continue
 		}
 		groupLog.WithField("updates", groupUpdates).Debug("checked update group")
 		updates += groupUpdates
@@ -159,7 +160,8 @@ func (u *RepoUpdater) updateBranch(ctx context.Context, log logrus.FieldLogger, 
 	for _, dep := range ungrouped {
 		ok, err := u.singleUpdate(ctx, log, branch, dep)
 		if err != nil {
-			return err
+			logrus.WithField("path", dep.Path).WithError(err).Error("error processing update")
+			continue
 		}
 		if ok {
 			updates++
