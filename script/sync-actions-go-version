@@ -1,10 +1,8 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT"
+cd "$(dirname "$0")/.."
 
 GO_VERSION="$(head -n1 Dockerfile | sed -e 's/.*://g' -e 's/ .*//g')"
-
 for f in .github/workflows/*; do
-  sed -i '' -e "s/go-version: .*/go-version: '$GO_VERSION'/g" "$f"
+  sed -e "s/go-version: .*/go-version: '$GO_VERSION'/g" -i "$f"
 done
