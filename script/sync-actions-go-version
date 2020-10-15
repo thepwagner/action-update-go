@@ -1,4 +1,7 @@
-#!/bin/sh -e
+#!/bin/bash -ex
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
 
 GO_VERSION="$(head -n1 Dockerfile | sed -e 's/.*://g' -e 's/ .*//g')"
 
