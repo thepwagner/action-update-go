@@ -1,0 +1,7 @@
+#!/bin/sh -e
+
+GO_VERSION="$(head -n1 Dockerfile | sed -e 's/.*://g' -e 's/ .*//g')"
+
+for f in .github/workflows/*; do
+  sed -i '' -e "s/go-version: .*/go-version: '$GO_VERSION'/g" "$f"
+done
