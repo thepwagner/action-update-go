@@ -21,3 +21,7 @@ jobs:
         with:
           log_level: debug
           token: ${{ secrets.MY_GITHUB_PAT }}
+      - uses: thepwagner/action-update-docker@main
+        with:
+          log_level: debug
+          token: ${{ secrets.MY_GITHUB_PAT }}
