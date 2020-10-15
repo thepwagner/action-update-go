@@ -3,7 +3,9 @@ package actions
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 
+	"github.com/bmatcuk/doublestar/v2"
 	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
 )
@@ -16,6 +18,7 @@ type Environment struct {
 	GitHubRepository string `env:"GITHUB_REPOSITORY"`
 
 	InputLogLevel string `env:"INPUT_LOG_LEVEL" envDefault:"info"`
+	InputIgnore   string `env:"INPUT_IGNORE"`
 }
 
 // ParseEvent returns deserialized GitHub webhook payload, or an error.
@@ -50,6 +53,16 @@ func (e *Environment) LogLevel() logrus.Level {
 		lvl = logrus.InfoLevel
 	}
 	return lvl
+}
+
+func (e *Environment) Ignored(path string) bool {
+	for _, p := range strings.Split(e.InputIgnore, "\n") {
+		p = strings.TrimSpace(p)
+		if m, _ := doublestar.Match(p, path); m {
+			return true
+		}
+	}
+	return false
 }
 
 // ActionEnvironment smuggles *Environment out of structs that embed one.
