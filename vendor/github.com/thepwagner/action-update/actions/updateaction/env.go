@@ -15,12 +15,13 @@ type Environment struct {
 	actions.Environment
 
 	// Inputs common to every updater:
-	GitHubToken     string `env:"INPUT_TOKEN"`
-	InputSigningKey string `env:"INPUT_SIGNING_KEY"`
-	InputGroups     string `env:"INPUT_GROUPS"`
-	InputBranches   string `env:"INPUT_BRANCHES"`
-	NoPush          bool   `env:"INPUT_NO_PUSH"`
-	InputIgnore     string `env:"INPUT_IGNORE"`
+	GitHubToken            string `env:"INPUT_TOKEN"`
+	InputSigningKey        string `env:"INPUT_SIGNING_KEY"`
+	InputGroups            string `env:"INPUT_GROUPS"`
+	InputBranches          string `env:"INPUT_BRANCHES"`
+	NoPush                 bool   `env:"INPUT_NO_PUSH"`
+	InputIgnore            string `env:"INPUT_IGNORE"`
+	InputDispatchOnRelease string `env:"INPUT_DISPATCH_ON_RELEASE"`
 }
 
 // Branches returns slice of all configured branches to update.
@@ -49,6 +50,15 @@ func (e *Environment) Ignored(path string) bool {
 		}
 	}
 	return false
+}
+
+func (e *Environment) ReleaseDispatchRepos() (repos []string) {
+	for _, b := range strings.Split(e.InputDispatchOnRelease, "\n") {
+		if s := strings.TrimSpace(b); s != "" {
+			repos = append(repos, s)
+		}
+	}
+	return
 }
 
 // UpdateEnvironment smuggles *Environment out of structs that embed one.

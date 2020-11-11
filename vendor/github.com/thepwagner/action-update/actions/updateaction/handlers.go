@@ -1,10 +1,7 @@
 package updateaction
 
 import (
-	"context"
-
 	"github.com/go-git/go-git/v5"
-	"github.com/google/go-github/v32/github"
 	"github.com/thepwagner/action-update/actions"
 	gitrepo "github.com/thepwagner/action-update/repo"
 	"github.com/thepwagner/action-update/updater"
@@ -17,21 +14,25 @@ type HandlerParams interface {
 
 // NewHandlers returns Actions handlers for processing updates
 func NewHandlers(p HandlerParams) *actions.Handlers {
-	h := &handler{cfg: p.env(), updaterFactory: p}
+	h := &handler{
+		cfg:            p.env(),
+		updaterFactory: p,
+		branchNamer:    updater.DefaultUpdateBranchNamer{},
+	}
 	return &actions.Handlers{
-		IssueComment: IssueComment,
-		PullRequest:  h.PullRequest,
-		Schedule:     h.UpdateAll,
-		RepositoryDispatch: func(ctx context.Context, _ *github.RepositoryDispatchEvent) error {
-			return h.UpdateAll(ctx)
-		},
-		WorkflowDispatch: h.UpdateAll,
+		IssueComment:       IssueComment,
+		PullRequest:        h.PullRequest,
+		Schedule:           h.UpdateAll,
+		RepositoryDispatch: h.RepositoryDispatch,
+		Release:            h.Release,
+		WorkflowDispatch:   h.UpdateAll,
 	}
 }
 
 type handler struct {
 	updaterFactory updater.Factory
 	cfg            *Environment
+	branchNamer    updater.UpdateBranchNamer
 }
 
 func (h *handler) repo() (updater.Repo, error) {
@@ -57,5 +58,5 @@ func (h *handler) repoUpdater(repo updater.Repo) (*updater.RepoUpdater, error) {
 	if err != nil {
 		return nil, err
 	}
-	return updater.NewRepoUpdater(repo, h.updaterFactory.NewUpdater(repo.Root()), updater.WithGroups(groups...)), nil
+	return updater.NewRepoUpdater(repo, h.updaterFactory.NewUpdater(repo.Root()), updater.WithGroups(groups...), updater.WithBranchNamer(h.branchNamer)), nil
 }
