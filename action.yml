@@ -33,6 +33,13 @@ inputs:
           pattern: /.*aws.*/
           range: >= 2.0.0, <3.0.0
     required: false
+  dispatch_on_release:
+    description: >
+      GitHub repositories to send a repository_dispatch when a release is made.
+      e.g.
+        thepwagner/action-update-go
+        thepwagner/action-update-docker
+    required: false
 runs:
   using: "composite"
   steps:
@@ -51,3 +58,4 @@ runs:
         INPUT_SIGNING_KEY: ${{ inputs.signing_key }}
         INPUT_LOG_LEVEL: ${{ inputs.log_level }}
         INPUT_GROUPS: ${{ inputs.groups }}
+        INPUT_DISPATCH_ON_RELEASE: ${{ inputs.dispatch_on_release }}
