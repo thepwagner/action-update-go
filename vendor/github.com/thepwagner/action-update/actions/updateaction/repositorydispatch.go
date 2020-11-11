@@ -40,14 +40,15 @@ func (h *handler) repoDispatchActionUpdate(ctx context.Context, evt *github.Repo
 	branchName := h.branchNamer.Format(baseBranch, update)
 
 	var success bool
-	if payload.Feedback.Owner != "" {
+	if payload.Feedback.IssueNumber != 0 {
 		defer func() {
+			logrus.Info("sending feedback to provided issue")
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
 			// Search for the PR that was created:
 			gh := repo.NewGitHubClient(h.cfg.GitHubToken)
-			prList, _, err := gh.PullRequests.List(ctx, evt.GetRepo().GetOwner().GetName(), evt.GetRepo().GetName(), &github.PullRequestListOptions{
+			prList, _, err := gh.PullRequests.List(ctx, evt.GetRepo().GetOwner().GetLogin(), evt.GetRepo().GetName(), &github.PullRequestListOptions{
 				Head: branchName,
 			})
 			if err != nil {
@@ -75,6 +76,8 @@ func (h *handler) repoDispatchActionUpdate(ctx context.Context, evt *github.Repo
 		"path":           update.Path,
 		"version":        update.Next,
 		"branch":         branchName,
+		"feedback_owner": payload.Feedback.Owner,
+		"feedback_namer": payload.Feedback.Name,
 		"feedback_issue": payload.Feedback.IssueNumber,
 	}).Debug("applying update from repository")
 	r, err := h.repo()
