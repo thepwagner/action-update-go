@@ -27,6 +27,7 @@ func (h *handler) Release(ctx context.Context, evt *github.ReleaseEvent) error {
 	if err != nil {
 		return err
 	}
+	logrus.WithField("issue_number", feedbackIssue.Number).Debug("created feedback issue")
 
 	dispatchOpts, err := releaseDispatchOptions(evt, feedbackIssue)
 	if err != nil {
@@ -58,7 +59,7 @@ func releaseFeedbackIssue(ctx context.Context, gh *github.Client, evt *github.Re
 		_, _ = fmt.Fprintf(&body, "- [ ] %s\n", r)
 	}
 
-	issue, _, err := gh.Issues.Create(ctx, ghRepo.GetOwner().GetName(), ghRepo.GetName(), &github.IssueRequest{
+	issue, _, err := gh.Issues.Create(ctx, ghRepo.GetOwner().GetLogin(), ghRepo.GetName(), &github.IssueRequest{
 		Title: github.String(fmt.Sprintf("Release feedback: %s", evt.GetRelease().GetTagName())),
 		Body:  github.String(body.String()),
 	})
@@ -70,7 +71,7 @@ func releaseDispatchOptions(evt *github.ReleaseEvent, feedbackIssue *github.Issu
 		Path: fmt.Sprintf("github.com/%s", evt.GetRepo().GetFullName()),
 		Next: evt.GetRelease().GetTagName(),
 		Feedback: RepoDispatchActionUpdatePayloadFeedback{
-			Owner:       feedbackIssue.GetRepository().GetOwner().GetName(),
+			Owner:       feedbackIssue.GetRepository().GetOwner().GetLogin(),
 			Name:        feedbackIssue.GetRepository().GetName(),
 			IssueNumber: feedbackIssue.GetNumber(),
 		},
