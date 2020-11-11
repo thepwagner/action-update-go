@@ -77,7 +77,7 @@ func (h *handler) repoDispatchActionUpdate(ctx context.Context, evt *github.Repo
 		"version":        update.Next,
 		"branch":         branchName,
 		"feedback_owner": payload.Feedback.Owner,
-		"feedback_namer": payload.Feedback.Name,
+		"feedback_name":  payload.Feedback.Name,
 		"feedback_issue": payload.Feedback.IssueNumber,
 	}).Debug("applying update from repository")
 	r, err := h.repo()
