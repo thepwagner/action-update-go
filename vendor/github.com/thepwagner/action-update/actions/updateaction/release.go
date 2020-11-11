@@ -71,8 +71,8 @@ func releaseDispatchOptions(evt *github.ReleaseEvent, feedbackIssue *github.Issu
 		Path: fmt.Sprintf("github.com/%s", evt.GetRepo().GetFullName()),
 		Next: evt.GetRelease().GetTagName(),
 		Feedback: RepoDispatchActionUpdatePayloadFeedback{
-			Owner:       feedbackIssue.GetRepository().GetOwner().GetLogin(),
-			Name:        feedbackIssue.GetRepository().GetName(),
+			Owner:       evt.GetRepo().GetOwner().GetLogin(),
+			Name:        evt.GetRepo().GetName(),
 			IssueNumber: feedbackIssue.GetNumber(),
 		},
 	})
