@@ -12,6 +12,7 @@ import (
 type Handlers struct {
 	IssueComment       func(context.Context, *github.IssueCommentEvent) error
 	PullRequest        func(context.Context, *github.PullRequestEvent) error
+	Release            func(context.Context, *github.ReleaseEvent) error
 	RepositoryDispatch func(context.Context, *github.RepositoryDispatchEvent) error
 	Schedule           func(context.Context) error
 	WorkflowDispatch   func(context.Context) error
@@ -71,6 +72,14 @@ func (h *Handlers) handler(event string) func(context.Context, interface{}) erro
 		}
 		return func(ctx context.Context, evt interface{}) error {
 			return h.PullRequest(ctx, evt.(*github.PullRequestEvent))
+		}
+
+	case "release":
+		if h.Release == nil {
+			return nil
+		}
+		return func(ctx context.Context, evt interface{}) error {
+			return h.Release(ctx, evt.(*github.ReleaseEvent))
 		}
 
 	case "repository_dispatch":

@@ -70,6 +70,12 @@ func WithGroups(groups ...*Group) RepoUpdaterOpt {
 	}
 }
 
+func WithBranchNamer(branchNamer UpdateBranchNamer) RepoUpdaterOpt {
+	return func(u *RepoUpdater) {
+		u.branchNamer = branchNamer
+	}
+}
+
 // Update creates a single update branch included the Repo.
 func (u *RepoUpdater) Update(ctx context.Context, baseBranch, branchName string, updates UpdateGroup) error {
 	if err := u.repo.NewBranch(baseBranch, branchName); err != nil {
