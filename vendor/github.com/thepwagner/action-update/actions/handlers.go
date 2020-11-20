@@ -99,11 +99,11 @@ func (h *Handlers) handler(event string) func(context.Context, interface{}) erro
 		}
 
 	case "workflow_dispatch":
-		if h.Schedule == nil {
+		if h.WorkflowDispatch == nil {
 			return nil
 		}
 		return func(ctx context.Context, _ interface{}) error {
-			return h.Schedule(ctx)
+			return h.WorkflowDispatch(ctx)
 		}
 
 	default:
