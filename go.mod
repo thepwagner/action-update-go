@@ -6,6 +6,6 @@ require (
 	github.com/dependabot/gomodules-extracted v1.2.0
 	github.com/sirupsen/logrus v1.7.0
 	github.com/stretchr/testify v1.6.1
-	github.com/thepwagner/action-update v0.0.28
+	github.com/thepwagner/action-update v0.0.29
 	golang.org/x/mod v0.4.0
 )
