@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v33/github"
 	"github.com/sirupsen/logrus"
 	"github.com/thepwagner/action-update/repo"
 	"github.com/thepwagner/action-update/updater"

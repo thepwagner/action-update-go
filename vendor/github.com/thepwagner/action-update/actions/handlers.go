@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	parser "github.com/caarlos0/env/v6"
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v33/github"
 	"github.com/sirupsen/logrus"
 )
 
