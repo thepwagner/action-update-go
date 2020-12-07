@@ -40,6 +40,10 @@ inputs:
         thepwagner/action-update-go
         thepwagner/action-update-docker
     required: false
+  tidy:
+    description: Whether to call `go mod tidy` after updates.
+    default: "true"
+    required: false
 runs:
   using: "composite"
   steps:
@@ -59,3 +63,4 @@ runs:
         INPUT_LOG_LEVEL: ${{ inputs.log_level }}
         INPUT_GROUPS: ${{ inputs.groups }}
         INPUT_DISPATCH_ON_RELEASE: ${{ inputs.dispatch_on_release }}
+        INPUT_TIDY: ${{ inputs.tidy }}
