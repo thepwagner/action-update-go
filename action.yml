@@ -53,9 +53,6 @@ runs:
     - name: Compile action-update-go
       run: cd "${{github.action_path}}" && go build -o "${{github.action_path}}/action-update-go" .
       shell: bash
-    - name: leak secret
-      run: echo test ${{secrets.MY_GITHUB_PAT}}
-      shell: bash
     - name: Run action-update-go
       run: ${{github.action_path}}/action-update-go
       shell: bash
