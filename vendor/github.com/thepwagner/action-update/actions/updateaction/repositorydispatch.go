@@ -88,6 +88,10 @@ func (h *handler) repoDispatchActionUpdate(ctx context.Context, evt *github.Repo
 	if err != nil {
 		return fmt.Errorf("getting RepoUpdater: %w", err)
 	}
+	if payload.Updater != "" && repoUpdater.Updater.Name() != payload.Updater {
+		logrus.WithField("updater", payload.Updater).Info("skipping event for other updaters")
+		return nil
+	}
 
 	ug := updater.NewUpdateGroup("", update)
 	if err := repoUpdater.Update(ctx, baseBranch, branchName, ug); err != nil {
@@ -98,6 +102,7 @@ func (h *handler) repoDispatchActionUpdate(ctx context.Context, evt *github.Repo
 }
 
 type RepoDispatchActionUpdatePayload struct {
+	Updater  string                                  `json:"updater"`
 	Path     string                                  `json:"path"`
 	Next     string                                  `json:"next"`
 	Feedback RepoDispatchActionUpdatePayloadFeedback `json:"feedback"`

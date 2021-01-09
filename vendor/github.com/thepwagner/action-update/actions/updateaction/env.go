@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bmatcuk/doublestar/v2"
+	"github.com/bmatcuk/doublestar/v3"
 	"github.com/thepwagner/action-update/actions"
 )
 
