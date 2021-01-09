@@ -74,8 +74,8 @@ github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXf
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd0=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
-github.com/thepwagner/action-update v0.0.31 h1:bCRbzpKEJ0o01YcA2n74pj+MY1FGNS3a3VSIEYdwgek=
-github.com/thepwagner/action-update v0.0.31/go.mod h1:6FCNUGnul4Flbg9OiQYeOlHlKky9TK5Pfl9u0nc0/Ww=
+github.com/thepwagner/action-update v0.0.32 h1:ASNddz5Ezjjs9aFySzvhak0ubKTvE1Q7goYNs9pYfMM=
+github.com/thepwagner/action-update v0.0.32/go.mod h1:6FCNUGnul4Flbg9OiQYeOlHlKky9TK5Pfl9u0nc0/Ww=
 github.com/xanzy/ssh-agent v0.2.1 h1:TCbipTQL2JiiCprBWx9frJ2eJlCYT00NmctrHxVAr70=
 github.com/xanzy/ssh-agent v0.2.1/go.mod h1:mLlQY/MoOhWBj+gOGMQkOeiEvkx+8pJSI+0Bx9h2kr4=
 golang.org/x/crypto v0.0.0-20190219172222-a4c6cb3142f2/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
