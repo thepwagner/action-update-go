@@ -39,6 +39,27 @@ func (h *handler) repoDispatchActionUpdate(ctx context.Context, evt *github.Repo
 	baseBranch := evt.GetRepo().GetDefaultBranch()
 	branchName := h.branchNamer.Format(baseBranch, update)
 
+	logrus.WithFields(logrus.Fields{
+		"path":           update.Path,
+		"version":        update.Next,
+		"branch":         branchName,
+		"feedback_owner": payload.Feedback.Owner,
+		"feedback_name":  payload.Feedback.Name,
+		"feedback_issue": payload.Feedback.IssueNumber,
+	}).Debug("applying update from repository")
+	r, err := h.repo()
+	if err != nil {
+		return fmt.Errorf("getting Repo: %w", err)
+	}
+	repoUpdater, err := h.repoUpdater(r)
+	if err != nil {
+		return fmt.Errorf("getting RepoUpdater: %w", err)
+	}
+	if payload.Updater != "" && repoUpdater.Updater.Name() != payload.Updater {
+		logrus.WithField("updater", payload.Updater).Info("skipping event for other updaters")
+		return nil
+	}
+
 	var success bool
 	if payload.Feedback.IssueNumber != 0 {
 		defer func() {
@@ -70,27 +91,6 @@ func (h *handler) repoDispatchActionUpdate(ctx context.Context, evt *github.Repo
 				logrus.WithError(err).Warn("error reporting feedback")
 			}
 		}()
-	}
-
-	logrus.WithFields(logrus.Fields{
-		"path":           update.Path,
-		"version":        update.Next,
-		"branch":         branchName,
-		"feedback_owner": payload.Feedback.Owner,
-		"feedback_name":  payload.Feedback.Name,
-		"feedback_issue": payload.Feedback.IssueNumber,
-	}).Debug("applying update from repository")
-	r, err := h.repo()
-	if err != nil {
-		return fmt.Errorf("getting Repo: %w", err)
-	}
-	repoUpdater, err := h.repoUpdater(r)
-	if err != nil {
-		return fmt.Errorf("getting RepoUpdater: %w", err)
-	}
-	if payload.Updater != "" && repoUpdater.Updater.Name() != payload.Updater {
-		logrus.WithField("updater", payload.Updater).Info("skipping event for other updaters")
-		return nil
 	}
 
 	ug := updater.NewUpdateGroup("", update)
