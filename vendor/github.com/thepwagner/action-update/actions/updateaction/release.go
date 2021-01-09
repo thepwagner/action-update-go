@@ -11,6 +11,9 @@ import (
 	"github.com/thepwagner/action-update/repo"
 )
 
+// Release emits a `repository_dispatch` events to a list of repositories when a release is published.
+// The dispatched event should be handled by RepositoryDispatch(), to update the triggered repositories
+// to the release that was just made.
 func (h *handler) Release(ctx context.Context, evt *github.ReleaseEvent) error {
 	if evt.GetAction() != "released" {
 		logrus.WithField("action", evt.GetAction()).Info("ignoring release event")
@@ -29,7 +32,7 @@ func (h *handler) Release(ctx context.Context, evt *github.ReleaseEvent) error {
 	}
 	logrus.WithField("issue_number", feedbackIssue.Number).Debug("created feedback issue")
 
-	dispatchOpts, err := releaseDispatchOptions(evt, feedbackIssue)
+	dispatchOpts, err := h.releaseDispatchOptions(evt, feedbackIssue)
 	if err != nil {
 		return err
 	}
@@ -66,10 +69,11 @@ func releaseFeedbackIssue(ctx context.Context, gh *github.Client, evt *github.Re
 	return issue, err
 }
 
-func releaseDispatchOptions(evt *github.ReleaseEvent, feedbackIssue *github.Issue) (github.DispatchRequestOptions, error) {
+func (h *handler) releaseDispatchOptions(evt *github.ReleaseEvent, feedbackIssue *github.Issue) (github.DispatchRequestOptions, error) {
 	payload, err := json.Marshal(&RepoDispatchActionUpdatePayload{
-		Path: fmt.Sprintf("github.com/%s", evt.GetRepo().GetFullName()),
-		Next: evt.GetRelease().GetTagName(),
+		Updater: h.updaterFactory.NewUpdater("").Name(),
+		Path:    fmt.Sprintf("github.com/%s", evt.GetRepo().GetFullName()),
+		Next:    evt.GetRelease().GetTagName(),
 		Feedback: RepoDispatchActionUpdatePayloadFeedback{
 			Owner:       evt.GetRepo().GetOwner().GetLogin(),
 			Name:        evt.GetRepo().GetName(),

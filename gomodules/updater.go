@@ -16,6 +16,8 @@ type Updater struct {
 
 var _ updater.Updater = (*Updater)(nil)
 
+func (u *Updater) Name() string { return "go" }
+
 func NewUpdater(root string, opts ...UpdaterOpt) *Updater {
 	u := &Updater{
 		root: root,

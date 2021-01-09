@@ -13,7 +13,7 @@ import (
 // RepoUpdater creates branches proposing all available updates for a Go module.
 type RepoUpdater struct {
 	repo        Repo
-	updater     Updater
+	Updater     Updater
 	groups      Groups
 	branchNamer UpdateBranchNamer
 }
@@ -39,6 +39,7 @@ type Repo interface {
 }
 
 type Updater interface {
+	Name() string
 	Dependencies(context.Context) ([]Dependency, error)
 	Check(ctx context.Context, dep Dependency, filter func(string) bool) (*Update, error)
 	ApplyUpdate(context.Context, Update) error
@@ -53,7 +54,7 @@ type Factory interface {
 func NewRepoUpdater(repo Repo, updater Updater, opts ...RepoUpdaterOpt) *RepoUpdater {
 	u := &RepoUpdater{
 		repo:        repo,
-		updater:     updater,
+		Updater:     updater,
 		branchNamer: DefaultUpdateBranchNamer{},
 	}
 	for _, opt := range opts {
@@ -82,7 +83,7 @@ func (u *RepoUpdater) Update(ctx context.Context, baseBranch, branchName string,
 		return fmt.Errorf("switching to target branch: %w", err)
 	}
 	for _, update := range updates.Updates {
-		if err := u.updater.ApplyUpdate(ctx, update); err != nil {
+		if err := u.Updater.ApplyUpdate(ctx, update); err != nil {
 			return fmt.Errorf("applying update: %w", err)
 		}
 	}
@@ -117,7 +118,7 @@ func (u *RepoUpdater) updateBranch(ctx context.Context, log logrus.FieldLogger, 
 	}
 
 	// List dependencies while on this branch:
-	deps, err := u.updater.Dependencies(ctx)
+	deps, err := u.Updater.Dependencies(ctx)
 	if err != nil {
 		return fmt.Errorf("getting dependencies: %w", err)
 	}
@@ -183,7 +184,7 @@ func (u *RepoUpdater) updateBranch(ctx context.Context, log logrus.FieldLogger, 
 }
 
 func (u *RepoUpdater) checkForUpdate(ctx context.Context, log logrus.FieldLogger, dep Dependency, filter func(string) bool) *Update {
-	update, err := u.updater.Check(ctx, dep, filter)
+	update, err := u.Updater.Check(ctx, dep, filter)
 	if err != nil {
 		log.WithError(err).Warn("error checking for updates")
 		return nil
@@ -209,7 +210,7 @@ func (u *RepoUpdater) singleUpdate(ctx context.Context, log logrus.FieldLogger, 
 	if err := u.repo.NewBranch(baseBranch, branch); err != nil {
 		return false, fmt.Errorf("switching to target branch: %w", err)
 	}
-	if err := u.updater.ApplyUpdate(ctx, *update); err != nil {
+	if err := u.Updater.ApplyUpdate(ctx, *update); err != nil {
 		return false, fmt.Errorf("applying batched update: %w", err)
 	}
 
@@ -254,7 +255,7 @@ func (u *RepoUpdater) groupedUpdate(ctx context.Context, log logrus.FieldLogger,
 	}
 
 	for _, update := range updates {
-		if err := u.updater.ApplyUpdate(ctx, update); err != nil {
+		if err := u.Updater.ApplyUpdate(ctx, update); err != nil {
 			return 0, fmt.Errorf("applying batched update: %w", err)
 		}
 	}
