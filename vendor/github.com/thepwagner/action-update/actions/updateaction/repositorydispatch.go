@@ -19,7 +19,6 @@ const (
 func (h *handler) RepositoryDispatch(ctx context.Context, evt *github.RepositoryDispatchEvent) error {
 	switch evt.GetAction() {
 	case RepoDispatchActionUpdate:
-		// TODO: is this the right action for this dependency? (e.g. if workflow has multiple action-update-*)
 		return h.repoDispatchActionUpdate(ctx, evt)
 	default:
 		return h.UpdateAll(ctx)
@@ -69,23 +68,21 @@ func (h *handler) repoDispatchActionUpdate(ctx context.Context, evt *github.Repo
 
 			// Search for the PR that was created:
 			gh := repo.NewGitHubClient(h.cfg.GitHubToken)
-			prList, _, err := gh.PullRequests.List(ctx, evt.GetRepo().GetOwner().GetLogin(), evt.GetRepo().GetName(), &github.PullRequestListOptions{
-				Head: branchName,
-			})
+			pullRequest, err := h.findPullRequest(ctx, gh, evt, branchName, update)
 			if err != nil {
-				logrus.WithError(err).Warn("error looking for pull request")
+				logrus.WithError(err).Warn("error finding created pull request")
 			}
 
 			// TODO: should be JSON? this checkpoint requires human validation and that's OK
-			var feedbackBody string
-			if len(prList) == 0 {
-				feedbackBody = fmt.Sprintf("%s - %s - %v", evt.GetRepo().GetFullName(), branchName, success)
+			var comment string
+			if pullRequest == nil {
+				comment = fmt.Sprintf("%s - %s - %v", evt.GetRepo().GetFullName(), branchName, success)
 			} else {
-				feedbackBody = prList[0].GetHTMLURL()
+				comment = pullRequest.GetHTMLURL()
 			}
 
 			_, _, err = gh.Issues.CreateComment(ctx, payload.Feedback.Owner, payload.Feedback.Name, payload.Feedback.IssueNumber, &github.IssueComment{
-				Body: github.String(feedbackBody),
+				Body: github.String(comment),
 			})
 			if err != nil {
 				logrus.WithError(err).Warn("error reporting feedback")
@@ -99,6 +96,40 @@ func (h *handler) repoDispatchActionUpdate(ctx context.Context, evt *github.Repo
 	}
 	success = true
 	return nil
+}
+
+func (h *handler) findPullRequest(ctx context.Context, gh *github.Client, evt *github.RepositoryDispatchEvent, baseBranch string, update updater.Update) (*github.PullRequest, error) {
+	// List PRs on the base branch:
+	prList, _, err := gh.PullRequests.List(ctx, evt.GetRepo().GetOwner().GetLogin(), evt.GetRepo().GetName(), &github.PullRequestListOptions{
+		Head: baseBranch,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("listing pull requests: %w", err)
+	}
+
+	// Decode signed update group embedded in the PR body, return the first match
+	for _, pr := range prList {
+		log := logrus.WithField("pr_number", pr.GetNumber())
+		signed := repo.ExtractSignedUpdateGroup(pr.GetBody())
+		if signed == nil {
+			log.Debug("ignoring PR")
+			continue
+		}
+		updates, err := updater.VerifySignedUpdateGroup(h.cfg.SigningKey(), *signed)
+		if err != nil {
+			return nil, fmt.Errorf("verifying signature: %w", err)
+		} else if updates == nil {
+			log.Debug("updates not found")
+			continue
+		}
+
+		for _, u := range updates.Updates {
+			if u.Path == update.Path && u.Next == update.Next {
+				return pr, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 type RepoDispatchActionUpdatePayload struct {
