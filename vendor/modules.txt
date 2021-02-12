@@ -1,6 +1,6 @@
 # github.com/bmatcuk/doublestar/v3 v3.0.0
 github.com/bmatcuk/doublestar/v3
-# github.com/caarlos0/env/v6 v6.4.0
+# github.com/caarlos0/env/v6 v6.5.0
 github.com/caarlos0/env/v6
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
@@ -121,7 +121,7 @@ github.com/sirupsen/logrus
 ## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# github.com/thepwagner/action-update v0.0.37
+# github.com/thepwagner/action-update v0.0.38
 ## explicit
 github.com/thepwagner/action-update/actions
 github.com/thepwagner/action-update/actions/updateaction
