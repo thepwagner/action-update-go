@@ -2,6 +2,7 @@ package updater
 
 import (
 	"path"
+	"strings"
 )
 
 const branchPrefix = "action-update-go"
@@ -19,7 +20,12 @@ type DefaultUpdateBranchNamer struct{}
 var _ UpdateBranchNamer = (*DefaultUpdateBranchNamer)(nil)
 
 func (d DefaultUpdateBranchNamer) Format(baseBranch string, update Update) string {
-	return path.Join(branchPrefix, baseBranch, update.Path, update.Next)
+	cleanPath := strings.ReplaceAll(update.Path, "https://", "")
+	cleanPath = strings.ReplaceAll(cleanPath, "http://", "")
+	cleanPath = strings.ReplaceAll(cleanPath, "#", "")
+	cleanPath = strings.ReplaceAll(cleanPath, "{", "")
+	cleanPath = strings.ReplaceAll(cleanPath, "}", "")
+	return path.Join(branchPrefix, baseBranch, cleanPath, update.Next)
 }
 
 func (d DefaultUpdateBranchNamer) FormatBatch(baseBranch, batchName string) string {
