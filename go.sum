@@ -15,8 +15,8 @@ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ3
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/dependabot/gomodules-extracted v1.2.0 h1:K/gTyOyhasOt4cjULvOPNiD3MAFGytp4F7e39aB+0Y0=
-github.com/dependabot/gomodules-extracted v1.2.0/go.mod h1:3NWkH8KcZVDM87JuZI8hCZzYbjfUSz98EZI53qjgMgY=
+github.com/dependabot/gomodules-extracted v1.3.0 h1:Rsnl5uR+wjE+7ontePia/B3p48aBRsyEhyNrzCwbkaw=
+github.com/dependabot/gomodules-extracted v1.3.0/go.mod h1:cpzrmDX1COyhSDQXHfkRMw0STb0vmguBFqmrkr51h1I=
 github.com/emirpasic/gods v1.12.0 h1:QAUIPSaCu4G+POclxeqb3F+WPpdKqFGlw36+yOzGlrg=
 github.com/emirpasic/gods v1.12.0/go.mod h1:YfzfFFoVP/catgzJb4IKIqXjX78Ha8FMSDh3ymbK86o=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 h1:BHsljHzVlRcyQhjrss6TZTdY2VfCqZPbv5k3iBFa2ZQ=
