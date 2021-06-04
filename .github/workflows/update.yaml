@@ -22,7 +22,7 @@ jobs:
             ${{ runner.os }}-go-
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.16.4'
+          go-version: '1.16.5'
       - uses: thepwagner/action-update-go@main
         with:
           log_level: debug
