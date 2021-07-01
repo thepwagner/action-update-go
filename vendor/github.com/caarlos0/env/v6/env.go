@@ -16,7 +16,7 @@ import (
 // nolint: gochecknoglobals
 var (
 	// ErrNotAStructPtr is returned if you pass something that is not a pointer to a
-	// Struct to Parse
+	// Struct to Parse.
 	ErrNotAStructPtr = errors.New("env: expected a pointer to a Struct")
 
 	defaultBuiltInParsers = map[reflect.Kind]ParserFunc{
@@ -92,7 +92,7 @@ var (
 	}
 )
 
-// ParserFunc defines the signature of a function that can be used within `CustomParsers`
+// ParserFunc defines the signature of a function that can be used within `CustomParsers`.
 type ParserFunc func(v string) (interface{}, error)
 
 // Options for the parser.
@@ -135,15 +135,6 @@ func configure(opts []Options) []Options {
 	return []Options{opt}
 }
 
-func toMap(env []string) map[string]string {
-	r := map[string]string{}
-	for _, e := range env {
-		p := strings.SplitN(e, "=", 2)
-		r[p[0]] = p[1]
-	}
-	return r
-}
-
 // getTagName returns the tag name.
 func getTagName(opts []Options) string {
 	return opts[0].TagName
@@ -173,7 +164,7 @@ func ParseWithFuncs(v interface{}, funcMap map[reflect.Type]ParserFunc, opts ...
 	if ref.Kind() != reflect.Struct {
 		return ErrNotAStructPtr
 	}
-	var parsers = defaultTypeParsers
+	parsers := defaultTypeParsers
 	for k, v := range funcMap {
 		parsers[k] = v
 	}
@@ -182,7 +173,7 @@ func ParseWithFuncs(v interface{}, funcMap map[reflect.Type]ParserFunc, opts ...
 }
 
 func doParse(ref reflect.Value, funcMap map[reflect.Type]ParserFunc, opts []Options) error {
-	var refType = ref.Type()
+	refType := ref.Type()
 
 	for i := 0; i < refType.NumField(); i++ {
 		refField := ref.Field(i)
@@ -227,7 +218,9 @@ func get(field reflect.StructField, opts []Options) (val string, err error) {
 	var required bool
 	var exists bool
 	var loadFile bool
-	var expand = strings.EqualFold(field.Tag.Get("envExpand"), "true")
+	var unset bool
+	var notEmpty bool
+	expand := strings.EqualFold(field.Tag.Get("envExpand"), "true")
 
 	key, tags := parseKeyForOption(field.Tag.Get(getTagName(opts)))
 
@@ -239,6 +232,10 @@ func get(field reflect.StructField, opts []Options) (val string, err error) {
 			loadFile = true
 		case "required":
 			required = true
+		case "unset":
+			unset = true
+		case "notEmpty":
+			notEmpty = true
 		default:
 			return "", fmt.Errorf("env: tag option %q not supported", tag)
 		}
@@ -251,8 +248,16 @@ func get(field reflect.StructField, opts []Options) (val string, err error) {
 		val = os.ExpandEnv(val)
 	}
 
+	if unset {
+		defer os.Unsetenv(key)
+	}
+
 	if required && !exists {
 		return "", fmt.Errorf(`env: required environment variable %q is not set`, key)
+	}
+
+	if notEmpty && val == "" {
+		return "", fmt.Errorf("env: environment variable %q should not be empty", key)
 	}
 
 	if loadFile && val != "" {
@@ -290,16 +295,15 @@ func getOr(key, defaultValue string, defExists bool, envs map[string]string) (va
 }
 
 func set(field reflect.Value, sf reflect.StructField, value string, funcMap map[reflect.Type]ParserFunc) error {
-	var tm = asTextUnmarshaler(field)
-	if tm != nil {
+	if tm := asTextUnmarshaler(field); tm != nil {
 		if err := tm.UnmarshalText([]byte(value)); err != nil {
 			return newParseError(sf, err)
 		}
 		return nil
 	}
 
-	var typee = sf.Type
-	var fieldee = field
+	typee := sf.Type
+	fieldee := field
 	if typee.Kind() == reflect.Ptr {
 		typee = typee.Elem()
 		fieldee = field.Elem()
@@ -335,13 +339,13 @@ func set(field reflect.Value, sf reflect.StructField, value string, funcMap map[
 }
 
 func handleSlice(field reflect.Value, value string, sf reflect.StructField, funcMap map[reflect.Type]ParserFunc) error {
-	var separator = sf.Tag.Get("envSeparator")
+	separator := sf.Tag.Get("envSeparator")
 	if separator == "" {
 		separator = ","
 	}
-	var parts = strings.Split(value, separator)
+	parts := strings.Split(value, separator)
 
-	var typee = sf.Type.Elem()
+	typee := sf.Type.Elem()
 	if typee.Kind() == reflect.Ptr {
 		typee = typee.Elem()
 	}
@@ -358,13 +362,13 @@ func handleSlice(field reflect.Value, value string, sf reflect.StructField, func
 		}
 	}
 
-	var result = reflect.MakeSlice(sf.Type, 0, len(parts))
+	result := reflect.MakeSlice(sf.Type, 0, len(parts))
 	for _, part := range parts {
 		r, err := parserFunc(part)
 		if err != nil {
 			return newParseError(sf, err)
 		}
-		var v = reflect.ValueOf(r).Convert(typee)
+		v := reflect.ValueOf(r).Convert(typee)
 		if sf.Type.Elem().Kind() == reflect.Ptr {
 			v = reflect.New(typee)
 			v.Elem().Set(reflect.ValueOf(r).Convert(typee))
